@@ -57,6 +57,7 @@
     <Compile Include="OneWayMirror.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Release.cs" />
+    <Compile Include="TwoWayMirrorPort.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
