@@ -12,7 +12,9 @@ using System.Threading.Tasks;
 
 namespace OneWayMirror.Core
 {
-    class OneWayMirror
+    internal sealed class OneWayMirror
     {
+
+
     }
 }

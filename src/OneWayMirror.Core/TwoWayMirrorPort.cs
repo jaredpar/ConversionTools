@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -12,13 +13,314 @@ using System.Threading.Tasks;
 
 namespace OneWayMirror.Core
 {
+    partial class TwoWayMirror
+    {
+        private static readonly Regex s_PortedFromTfsRegex = new Regex(@"\[tfs-changeset: (?<changeset>\d+)\]");
+
+        /// <summary>
+        /// Port changes from Git to TFS and if succsessful, check them in.
+        /// </summary>
+        /// <remarks>
+        /// In general the strategy is as follows.  First we find the current tip changeset in TFS (that contains at 
+        /// least one mirrored file) and ensure that this changeset has been merged into Git (To do so we walk the 
+        /// master branch looking for a commit which has the special tag "[tfs-changeset: XYZ]".  If we can not 
+        /// find this, it means that there are TFS changes which have not made it to Git.  If that is the case, we 
+        /// abort as we want to ensure what we are about to do doesn't lose any information from TFS.
+        /// 
+        /// Once this is done, we take the tree from the head commit of master and use it to construct a TFS changeset.  
+        /// By diffing it against the head of TFS.  Then we submit the changeset.
+        /// 
+        /// When we submit the changeset, we mark it with a special tag in the commit message:
+        /// 
+        /// [git-commit-sha: SHA_OF_COMMIT_OF_TREE_WE_PORTED]"
+        /// 
+        /// This allows the process which ports change from TFS to Git to know where master was when TFS was synced
+        /// with Git, so it can use that as the base for new commits when porting changes from TFS to Git.
+        /// 
+        /// If this submit fails, it means that there have been new changes submitted to TFS after we started (which
+        /// conflict with ours).  In this case we bail.  We will have to wait for the TFS changes to flow back to GitHub
+        /// before trying again.
+        /// </remarks>
+        /// <return>
+        /// True if changes were ported from Git to TFS.
+        /// </return>
+        private bool PortFromGitToTfs()
+        {
+            _logger.Information("Starting Git -> TFS port.");
+
+            UpdateLocalMasterToLatest();
+
+            Workspace w = _vcServer.GetWorkspace(_tfsWorkspacePath);
+
+            IEnumerable<Changeset> tfsHistory = GetHistorySnapshot();
+
+            Changeset tfsHead = tfsHistory.First();
+            Changeset newestMirrorable = tfsHistory.First(IsMirrorableChangeset);
+
+            Commit gitMasterHead = _gitRepo.Refs[RefPathForHeadOfBranch(_config.GitTargetBranch)].ResolveAs<Commit>();
+
+            if (!IsChangesetReachableFromCommit(newestMirrorable, gitMasterHead))
+            {
+                _logger.Information("{ChangesetId} is missing from Git.  Not porting changes from Git.", newestMirrorable.ChangesetId);
+                return false;
+            }
+
+            _logger.Verbose("Syncing Workspace to {ChangesetId}.", tfsHead.ChangesetId);
+
+            GetStatus status = w.Get(ChangesetVersion(tfsHead.ChangesetId), GetOptions.NoAutoResolve);
+
+            Release.Assert(status.NumConflicts == 0, "Conflicts During Sync: {0}!", status);
+            Release.Assert(status.NumFailures == 0, "Failures During Sync: {0}!", status);
+            Release.Assert(status.NumWarnings == 0, "Warnings During Sync: {0}!", status);
+
+            _logger.Verbose("Diffing Git and TFS.");
+
+            Tree tfsHeadTree = GitUtils.BuildTreeFromTfsWorkspace(_config.TfsWorkspacePath, _objectDatabase);
+            Tree gitMasterTree = gitMasterHead.Tree;
+
+            TreeChanges treeChanges = _gitRepo.Diff.Compare<TreeChanges>(tfsHeadTree, gitMasterTree, compareOptions: new LibGit2Sharp.CompareOptions() { Similarity = SimilarityOptions.Renames });
+
+            if (!treeChanges.Any())
+            {
+                _logger.Information("TFS is up to date with Git.");
+                return false;
+            }
+
+            // Construct a CS based on the Diff.
+            foreach (TreeEntryChanges t in treeChanges)
+            {
+                _logger.Verbose("Pending Change: {OldPath}({OldOid}:{OldMode}) -> {NewPath}({NewOld}:{NewMode}) {Status}.", t.OldPath, t.OldOid, t.OldMode, t.Path, t.Oid, t.Mode, t.Status);
+
+                switch (t.Status)
+                {
+                    case ChangeKind.Added:
+                        WriteOidToNewFile(t.Oid, t.Path);
+                        w.PendAdd(GitToTfsWorkspacePath(t.Path));
+                        break;
+                    case ChangeKind.Deleted:
+                        w.PendDelete(GitToTfsWorkspacePath(t.Path));
+                        break;
+                    case ChangeKind.Renamed:
+                        w.PendRename(GitToTfsWorkspacePath(t.OldPath), GitToTfsWorkspacePath(t.Path));
+
+                        if (t.OldOid != t.Oid)
+                        {
+                            w.PendEdit(GitToTfsWorkspacePath(t.Path));
+                            CopyOidToFile(t.Oid, t.Path);
+                        }
+
+                        break;
+                    case ChangeKind.Modified:
+                        if (t.OldOid == t.Oid)
+                        {
+                            Release.Assert(t.OldMode != t.Mode, "{0} != {1}", t.OldMode, t.Mode);
+                        }
+                        else
+                        {
+                            w.PendEdit(GitToTfsWorkspacePath(t.Path));
+                            CopyOidToFile(t.Oid, t.Path);
+                        }
+                        break;
+                    default:
+                        Release.Fail("Unknown change {0}({1}:{2}) -> {3}({4}:{5}) {6}!", t.OldPath, t.OldOid, t.OldMode, t.Path, t.Oid, t.Mode, t.Status);
+                        break;
+                }
+            }
+
+            if (!w.GetPendingChangesEnumerable().Any())
+            {
+                _logger.Information("TFS is up to date with Git.");
+                return false;
+            }
+
+            string baseSha = GetPreviousCommitSha(tfsHistory);
+
+            _logger.Verbose("Submitting Changes.");
+
+            StringBuilder commitMessageBuilder = new StringBuilder();
+            commitMessageBuilder.AppendLine("Port Git -> TFS");
+            commitMessageBuilder.AppendLine();
+            commitMessageBuilder.Append("From: ");
+            commitMessageBuilder.AppendLine(baseSha);
+            commitMessageBuilder.Append("To: ");
+            commitMessageBuilder.AppendLine(gitMasterHead.Sha);
+            commitMessageBuilder.AppendLine();
+            commitMessageBuilder.AppendLine("This commit was generated automatically by a tool.  Contact dotnet-bot@microsoft.com for help.");
+            commitMessageBuilder.AppendLine();
+            commitMessageBuilder.Append("[git-commit-sha: ");
+            commitMessageBuilder.Append(gitMasterHead.Sha);
+            commitMessageBuilder.AppendLine("]");
+
+            string comment = commitMessageBuilder.ToString();
+
+            if (_config.CheckInToTfs)
+            {
+                WorkspaceCheckInParameters checkinParameters = new WorkspaceCheckInParameters(w.GetPendingChangesEnumerable(), comment);
+                checkinParameters.NoAutoResolve = true;
+
+                try
+                {
+                    int cs = w.CheckIn(checkinParameters);
+                    _logger.Information("Submitted {ChangesetId}.", cs);
+                }
+                catch (CheckinException e)
+                {
+                    // We hit a race where someone modified a file we wanted to edit before
+                    // we could submit.  Even if these conflicts were auto-resolvable, we still
+                    // fail, because we never mirror these special changesets back to Git, and
+                    // so we don't want to introduce changes in them.
+                    //
+                    // If this becomes a pain point, we can think through what would need to change
+                    // to allow us to consider these as candidate changes.
+                    Release.Assert(e.Conflicts.Length > 0, "CheckinException during submit but no conflicts? Exception was: {0}.", e);
+                }
+            }
+            else
+            {
+                string shelvesetName = "ported-git-changes-" + gitMasterHead.Sha;
+                Shelveset s = new Shelveset(_vcServer, shelvesetName, w.OwnerName);
+                s.Comment = comment;
+
+                PendingChange[] changes = w.GetPendingChanges();
+
+                w.Shelve(s, changes, ShelvingOptions.Replace);
+                _logger.Information("Shelved changes as {ShelvesetName}.", shelvesetName);
+                int undoneChangesCount = w.Undo(changes);
+
+                Release.Assert(undoneChangesCount == changes.Length, "Not all changes were reverted!");
+            }
+
+            return true;
+        }
+
+        private IEnumerable<Changeset> GetHistorySnapshot()
+        {
+            // Force a specific head, otherwise each time the IEnumerable is iterated, we'll pick up
+            // new changes, which we don't want.
+            return GetHistorySnapshot(ChangesetVersion(GetHistorySnapshot(null).First().ChangesetId));
+        }
+
+        private IEnumerable<Changeset> GetHistorySnapshot(VersionSpec versionEnd)
+        {
+            QueryHistoryParameters queryParameters = new QueryHistoryParameters(_tfsRoot, RecursionType.Full);
+            queryParameters.IncludeChanges = true;
+            queryParameters.VersionEnd = versionEnd;
+
+            return _vcServer.QueryHistory(queryParameters);
+        }
+
+        /// <summary>
+        /// Get the Sha of master which was the base of the previous Git -> TFS merge, i.e.
+        /// the Sha from the newest [git-commit-sha] tag.
+        /// </summary>
+        private string GetPreviousCommitSha(IEnumerable<Changeset> history)
+        {
+            Changeset newestMergeChangeset = history.First(c => s_PortedFromGitRegex.IsMatch(c.Comment));
+
+            return s_PortedFromGitRegex.Match(newestMergeChangeset.Comment).Groups["sha"].Value;
+        }
+
+        private static bool IsChangesetReachableFromCommit(Changeset tfsChangeset, Commit baseCommit)
+        {
+            string ignore = null;
+            return IsChangesetReachableFromCommit(tfsChangeset, baseCommit, out ignore);
+        }
+
+        /// <summary>
+        /// Given a TFS Changeset, determine if it is present in the graph of commits starting at a base.
+        /// </summary>
+        /// <remarks>
+        /// This is a simple BFS over the graph rooted by <paramref name="baseCommit"/>.  We use the
+        /// [tfs-changeset: XXXX] metadata in the commit message to figure out if a git commit coresponds
+        /// to a TFS change.
+        /// </remarks>
+        private static bool IsChangesetReachableFromCommit(Changeset tfsChangeset, Commit baseCommit, out string commitSha)
+        {
+            Queue<Commit> commitsToWalk = new Queue<Commit>();
+
+            commitsToWalk.Enqueue(baseCommit);
+
+            while (commitsToWalk.Any())
+            {
+                Commit c = commitsToWalk.Dequeue();
+
+                Match m = s_PortedFromTfsRegex.Match(c.Message);
+
+                if (m.Success)
+                {
+                    int commitNumber = int.Parse(m.Groups["changeset"].Value, CultureInfo.InvariantCulture);
+                    if (commitNumber == tfsChangeset.ChangesetId)
+                    {
+                        commitSha = c.Sha;
+                        return true;
+                    }
+                }
+
+                foreach (Commit toEnqueue in c.Parents)
+                {
+                    commitsToWalk.Enqueue(toEnqueue);
+                }
+            }
+
+            commitSha = null;
+            return false;
+        }
+
+        private void WriteOidToNewFile(ObjectId oidOfFile, string gitPath)
+        {
+            string tfsPath = GitToTfsWorkspacePath(gitPath);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(tfsPath));
+
+            using (FileStream fs = new FileStream(tfsPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                _gitRepo.Lookup<Blob>(oidOfFile).GetContentStream(new FilteringOptions(gitPath)).CopyTo(fs);
+            }
+        }
+
+        private void CopyOidToFile(ObjectId oidOfFile, string gitPath)
+        {
+            string tfsPath = GitToTfsWorkspacePath(gitPath);
+
+            using (FileStream fs = new FileStream(tfsPath, FileMode.Truncate, FileAccess.Write, FileShare.None))
+            {
+                _gitRepo.Lookup<Blob>(oidOfFile).GetContentStream(new FilteringOptions(gitPath)).CopyTo(fs);
+            }
+        }
+
+        private string GitToTfsWorkspacePath(string gitPath)
+        {
+            Release.Assert(!gitPath.StartsWith("/"), "Git Path should not have a leading slash!");
+
+            return Path.Combine(_tfsWorkspacePath, gitPath);
+        }
+
+        private string TfsWorkspaceToGitPath(string tfsPath)
+        {
+            Release.Assert(!tfsPath.EndsWith(@"\"), "TFS Path Should not have trailing slash!");
+
+            return tfsPath.Substring(_tfsWorkspacePath.Length + 1).Replace('\\', '/');
+        }
+
+        private string RefPathForHeadOfBranch(string branchName)
+        {
+            return string.Format("refs/heads/{0}", branchName);
+        }
+
+        private Credentials GitHubCredentialsProvider(string url, string usernameFromUrl, SupportedCredentialTypes types)
+        {
+            return new UsernamePasswordCredentials()
+            {
+                Username = _config.GitHubOriginOwner,
+                Password = _config.GitHubApiKey
+            };
+        }
+    }
+
     partial class TwoWayMirror : IDisposable
     {
         const string GitMirrorFile = ".gitmirror";
         const string GitMirrorAllFile = ".gitmirrorall";
-
-        private static readonly Regex s_PortedFromTfsRegex = new Regex(@"\[tfs-changeset: (?<changeset>\d+)\]");
-
 
         public static readonly TimeSpan FiveMinutes = new TimeSpan(0, 5, 0);
 
@@ -549,72 +851,7 @@ namespace OneWayMirror.Core
             public string Sha { get; set; }
         }
 
-        private IEnumerable<Changeset> GetHistorySnapshot()
-        {
-            // Force a specific head, otherwise each time the IEnumerable is iterated, we'll pick up
-            // new changes, which we don't want.
-            return GetHistorySnapshot(ChangesetVersion(GetHistorySnapshot(null).First().ChangesetId));
-        }
-
-        private IEnumerable<Changeset> GetHistorySnapshot(VersionSpec versionEnd)
-        {
-            QueryHistoryParameters queryParameters = new QueryHistoryParameters(_tfsRoot, RecursionType.Full);
-            queryParameters.IncludeChanges = true;
-            queryParameters.VersionEnd = versionEnd;
-
-            return _vcServer.QueryHistory(queryParameters);
-        }
-
-        private string RefPathForHeadOfBranch(string branchName)
-        {
-            return string.Format("refs/heads/{0}", branchName);
-        }
-
-        private static bool IsChangesetReachableFromCommit(Changeset tfsChangeset, Commit baseCommit)
-        {
-            string ignore = null;
-            return IsChangesetReachableFromCommit(tfsChangeset, baseCommit, out ignore);
-        }
-
-        /// <summary>
-        /// Given a TFS Changeset, determine if it is present in the graph of commits starting at a base.
-        /// </summary>
-        /// <remarks>
-        /// This is a simple BFS over the graph rooted by <paramref name="baseCommit"/>.  We use the
-        /// [tfs-changeset: XXXX] metadata in the commit message to figure out if a git commit coresponds
-        /// to a TFS change.
-        /// </remarks>
-        private static bool IsChangesetReachableFromCommit(Changeset tfsChangeset, Commit baseCommit, out string commitSha)
-        {
-            Queue<Commit> commitsToWalk = new Queue<Commit>();
-
-            commitsToWalk.Enqueue(baseCommit);
-
-            while (commitsToWalk.Any())
-            {
-                Commit c = commitsToWalk.Dequeue();
-
-                Match m = s_PortedFromTfsRegex.Match(c.Message);
-
-                if (m.Success)
-                {
-                    int commitNumber = int.Parse(m.Groups["changeset"].Value, CultureInfo.InvariantCulture);
-                    if (commitNumber == tfsChangeset.ChangesetId)
-                    {
-                        commitSha = c.Sha;
-                        return true;
-                    }
-                }
-
-                foreach (Commit toEnqueue in c.Parents)
-                {
-                    commitsToWalk.Enqueue(toEnqueue);
-                }
-            }
-
-            commitSha = null;
-            return false;
-        }
 
     }
+
 }
