@@ -29,7 +29,7 @@ namespace OneWayMirror.Core
 
             public override string ToString()
             {
-                return string.Format("{0} -> {1}", OldCommit.Sha.Substring(6), NewCommit.Sha.Substring(6));
+                return string.Format("{0} -> {1}", OldCommit.Sha.Substring(0, 6), NewCommit.Sha.Substring(0, 6));
             }
         }
 
@@ -280,9 +280,8 @@ namespace OneWayMirror.Core
             // Construct a CS based on the Diff.
             foreach (var changeEntry in treeChanges)
             {
-                _host.Verbose("Pending Change: {OldPath}({OldOid}:{OldMode}) -> {NewPath}({NewOld}:{NewMode}) {Status}.", changeEntry.OldPath, changeEntry.OldOid, changeEntry.OldMode, changeEntry.Path, changeEntry.Oid, changeEntry.Mode, changeEntry.Status);
-
                 var tfsFilePath = GetTfsWorkspacePath(changeEntry.Path);
+                _host.Verbose("Pending change {0} {1} -> {2}", changeEntry.Status, changeEntry.Path, tfsFilePath);
                 switch (changeEntry.Status)
                 {
                     case ChangeKind.Added:
@@ -311,7 +310,7 @@ namespace OneWayMirror.Core
                         }
                         break;
                     default:
-                        _host.Error("Unknown change {0}({1}:{2}) -> {3}({4}:{5}) {6}!", changeEntry.OldPath, changeEntry.OldOid, changeEntry.OldMode, changeEntry.Path, changeEntry.Oid, changeEntry.Mode, changeEntry.Status);
+                        _host.Error("Unknown change status {0} {1}", changeEntry.Status, changeEntry.Path);
                         return false;
                 }
             }
