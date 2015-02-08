@@ -274,9 +274,8 @@ namespace OneWayMirror.Core
             builder.AppendLine();
             builder.AppendFormatLine("[git-commit-sha: {0}]", commitRange.NewCommit.Sha);
 
-            var uriBuilder = new UriBuilder(_repositoryUrl);
-            uriBuilder.Path = string.Format("commit/{0}", commitRange.NewCommit.Sha);
-            builder.AppendFormatLine("[git-commit-url: {0}", uriBuilder.ToString());
+            var commitUri = _repositoryUrl + string.Format("/commit/{0}", commitRange.NewCommit.Sha);
+            builder.AppendFormatLine("[git-commit-url: {0}", commitUri);
 
             return builder.ToString();
         }

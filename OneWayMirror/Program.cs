@@ -25,6 +25,10 @@ namespace OneWayMirror
                 Password = token
             };
 
+            var uriBuilder = new UriBuilder(gitRepositoryUrl);
+            uriBuilder.Path = string.Format("commit/{0}", "aoeuaoeua");
+            var uri = uriBuilder.ToString();
+
             OneWayMirrorUtil.Run(
                 new ConsoleHost(verbose: true),
                 tfsCollection,
