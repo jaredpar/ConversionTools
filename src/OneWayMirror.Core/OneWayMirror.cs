@@ -46,6 +46,8 @@ namespace OneWayMirror.Core
         private readonly Credentials _repositoryCredentials;
         private readonly bool _confirmBeforeCheckin;
 
+        private Tree _cachedWorkspaceTree;
+
         internal OneWayMirror(
             IHost host,
             Workspace workspace,
@@ -144,7 +146,15 @@ namespace OneWayMirror.Core
 
             try
             {
-                _workspace.Get();
+                var itemSpec = new ItemSpec(_workspacePath, RecursionType.Full);
+                var getStatus = _workspace.Get(new GetRequest(itemSpec, VersionSpec.Latest), GetOptions.NoAutoResolve);
+
+                // If the get performed any actual work then kill the cached tree that we have.  
+                if (!getStatus.NoActionNeeded)
+                {
+                    _cachedWorkspaceTree = null;
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -227,10 +237,12 @@ namespace OneWayMirror.Core
             try
             {
                 _workspace.CheckIn(checkinParameters);
+                _cachedWorkspaceTree = newCommit.Tree;
             }
             catch (Exception ex)
             {
                 _host.Error("Unable to complete checkin: {0}", ex.Message);
+                _cachedWorkspaceTree = null;
                 return false;
             }
 
@@ -316,6 +328,19 @@ namespace OneWayMirror.Core
             }
 
             return true;
+        }
+
+        private Tree GetOrCreateWorkspaceTree()
+        {
+            // Creating a Tree object for a Workspace is relatively expensive.  It requires reading all the files
+            // on disk.  Given that we are the primary updaters of the tree we can safely cache the tree value to
+            // avoid the operation.
+            if (_cachedWorkspaceTree == null)
+            {
+                 _cachedWorkspaceTree = GitUtils.CreateTreeFromWorkspace(_workspace, _workspacePath, _repository.ObjectDatabase);
+            }
+
+            return _cachedWorkspaceTree;
         }
 
         /// <summary>
