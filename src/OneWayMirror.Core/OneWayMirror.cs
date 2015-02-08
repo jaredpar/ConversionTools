@@ -56,7 +56,10 @@ namespace OneWayMirror.Core
 
             while (true)
             {
-                FetchGitLatest();
+                if (!FetchGitLatest())
+                {
+                    return;
+                }
 
                 var commit = _repository.Refs["upstream/master"].ResolveAs<Commit>();
                 if (commit.Sha == baseCommit.Sha)
@@ -76,15 +79,37 @@ namespace OneWayMirror.Core
             }
         }
 
-        private void FetchGitLatest()
+        private bool FetchGitLatest()
         {
             _host.Verbose("Updating Git from upstream/master.");
 
-            Remote upstream = _repository.Network.Remotes["upstream"];
+            var upstream = _repository.Network.Remotes["upstream"];
+            if (upstream == null)
+            {
+                _host.Error("Git repository must have a remote named upstream");
+                return false;
+            }
 
             var fetchOptions = new FetchOptions();
             fetchOptions.CredentialsProvider = (url, userNameForUrl, type) => _repositoryCredentials;
-            _repository.Network.Fetch(upstream, fetchOptions);
+
+            try
+            {
+                _repository.Network.Fetch(upstream, fetchOptions);
+                return true;
+            } 
+            catch (Exception ex)
+            {
+                _host.Error("Error fetching upstream: {0}", ex.Message);
+
+                // The git protocol not correctly supported by libgit2sharp at the moment
+                if (upstream.Url.Contains("git@github"))
+                {
+                    _host.Error("upstream remote must have an https URL, currently git@github form");
+                }
+
+                return false;
+            }
         }
 
         private void UpdateWorkspaceToLatest()
@@ -138,7 +163,7 @@ namespace OneWayMirror.Core
 
             // Note: This is a suboptimal way of building the tree.  The file system can be changed by 
             // local builds and such.  Much better to build directly from the Workspace object.
-            var workspaceTree = GitUtils.CreateTreeFromDirectory(_workspacePath, _repository.ObjectDatabase);
+            var workspaceTree = GitUtils.CreateTreeFromWorkspace(_workspace, _workspacePath, _repository.ObjectDatabase);
             var treeChanges = _repository.Diff.Compare<TreeChanges>(workspaceTree, commit.Tree, compareOptions: new LibGit2Sharp.CompareOptions() { Similarity = SimilarityOptions.Renames });
 
             if (!treeChanges.Any())

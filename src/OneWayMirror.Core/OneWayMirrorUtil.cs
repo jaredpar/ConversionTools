@@ -41,7 +41,7 @@ namespace OneWayMirror.Core
                 credentials,
                 confirmBeforeCheckin);
 
-            var sha = FindLastMirroredSha(tfsWorkspace.VersionControlServer, tfsWorkspaceTargetDirectory);
+            var sha = FindLastMirroredSha(tfsWorkspace.VersionControlServer, workspacePath);
             if (sha == null)
             {
                 host.Error("Could not find the last mirrored SHA1");
