@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config.cs" />
+    <Compile Include="ConsoleHost.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="GitUtils.cs" />
     <Compile Include="IHost.cs" />
