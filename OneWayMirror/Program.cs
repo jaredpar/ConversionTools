@@ -25,8 +25,11 @@ namespace OneWayMirror
 
             var workspace = OneWayMirrorUtil.GetTfsWorkspace(tfsCollection, tfsWorkspacePath);
             var repository = new Repository(gitRepositoryPath);
-            var tree = GitUtils.CreateTreeFromWorkspace(workspace, Path.Combine(tfsWorkspacePath, @"Open\src\Test\Utilities"), repository.ObjectDatabase);
-            PrintTree(tree);
+            var target = Path.Combine(tfsWorkspacePath, @"Open\src\Test\Utilities");
+            var tree1 = GitUtils.CreateTreeFromWorkspace(workspace, target, repository.ObjectDatabase);
+            var tree2 = GitUtils.CreateTreeFromDirectory(target, repository.ObjectDatabase);
+            PrintTree(tree1);
+            PrintTree(tree2);
         }
 
         private static void PrintTree(Tree tree, int depth = 0)
