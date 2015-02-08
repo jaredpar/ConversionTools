@@ -75,7 +75,7 @@ namespace OneWayMirror.Core
 
             _logger.Verbose("Diffing Git and TFS.");
 
-            Tree tfsHeadTree = GitUtils.BuildTreeFromTfsWorkspace(_config.TfsWorkspacePath, _objectDatabase);
+            Tree tfsHeadTree = GitUtils.BuildTreeFromTfsWorkspaceLegacy(_config.TfsWorkspacePath, _objectDatabase);
             Tree gitMasterTree = gitMasterHead.Tree;
 
             TreeChanges treeChanges = _gitRepo.Diff.Compare<TreeChanges>(tfsHeadTree, gitMasterTree, compareOptions: new LibGit2Sharp.CompareOptions() { Similarity = SimilarityOptions.Renames });
@@ -623,7 +623,7 @@ namespace OneWayMirror.Core
             // Debug.Assert(status.NumFailures == 0, "Failures During Sync: {0}!", status);
             // Debug.Assert(status.NumWarnings == 0, "Warnings During Sync: {0}!", status);
 
-            return GitUtils.BuildTreeFromTfsWorkspace(_tfsWorkspacePath, _objectDatabase);
+            return GitUtils.BuildTreeFromTfsWorkspaceLegacy(_tfsWorkspacePath, _objectDatabase);
 
         }
 

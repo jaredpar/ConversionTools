@@ -89,7 +89,7 @@ namespace OneWayMirror.Core
         /// Construct a Git Tree that represents the on disk version of the TFS workspace, eliding files
         /// that are not mirrored via .gitmirror and .gitmirrorall
         /// </summary>
-        public static Tree BuildTreeFromTfsWorkspace(string tfsWorkspacePath, ObjectDatabase objectDatabase)
+        public static Tree BuildTreeFromTfsWorkspaceLegacy(string tfsWorkspacePath, ObjectDatabase objectDatabase)
         {
             bool hasGitMirror = File.Exists(Path.Combine(tfsWorkspacePath, GitMirrorFile));
             bool hasGitMirrorAll = File.Exists(Path.Combine(tfsWorkspacePath, GitMirrorAllFile));
@@ -105,12 +105,12 @@ namespace OneWayMirror.Core
 
             TreeDefinition td = new TreeDefinition();
 
-            AddIncludedItemsToTreeDefinition(td, objectDatabase, tfsToGitPath, tfsWorkspacePath, hasGitMirrorAll);
+            AddIncludedItemsToTreeDefinitionLegacy(td, objectDatabase, tfsToGitPath, tfsWorkspacePath, hasGitMirrorAll);
 
             return objectDatabase.CreateTree(td);
         }
 
-        private static void AddIncludedItemsToTreeDefinition(TreeDefinition td, ObjectDatabase objectDatabase, Func<string, string> tfsToGitPath, string directory, bool inGitMirrorAll)
+        private static void AddIncludedItemsToTreeDefinitionLegacy(TreeDefinition td, ObjectDatabase objectDatabase, Func<string, string> tfsToGitPath, string directory, bool inGitMirrorAll)
         {
             bool hasGitMirror = File.Exists(Path.Combine(directory, GitMirrorFile));
             bool hasGitMirrorAll = File.Exists(Path.Combine(directory, GitMirrorAllFile));
@@ -131,7 +131,7 @@ namespace OneWayMirror.Core
 
             foreach (string directoryPath in Directory.GetDirectories(directory))
             {
-                AddIncludedItemsToTreeDefinition(td, objectDatabase, tfsToGitPath, directoryPath, inGitMirrorAll || hasGitMirrorAll);
+                AddIncludedItemsToTreeDefinitionLegacy(td, objectDatabase, tfsToGitPath, directoryPath, inGitMirrorAll || hasGitMirrorAll);
             }
         }
 
@@ -139,6 +139,50 @@ namespace OneWayMirror.Core
         private static Mode GetFileModeForPath(string filePath)
         {
             return filePath.EndsWith(".sh", StringComparison.OrdinalIgnoreCase) ? Mode.ExecutableFile : Mode.NonExecutableFile;
+        }
+
+        /// <summary>
+        /// This creates a Tree object from the local file system.  
+        /// 
+        /// Note: This is not the most robust method of building a Tree.  The most reliably way would 
+        /// be to query the set of items in the Workspace object.  That is not subject to change through
+        /// local operations like building. 
+        /// </summary>
+        public static Tree CreateTreeFromDirectory(string path, ObjectDatabase objectDatabase)
+        {
+            Func<string, string> convertToGitPath = (string filePath) =>
+            {
+                Release.Assert(!filePath.EndsWith(@"\"), "File path should not have a trailing slash");
+
+                var gitPath = filePath.Substring(path.Length + 1);
+                gitPath = gitPath.Replace('\\', '/');
+                return gitPath;
+            };
+
+            var treeDefinition = new TreeDefinition();
+            treeDefinition = CreateTreeFromDirectoryCore(path, objectDatabase, treeDefinition, convertToGitPath);
+            return objectDatabase.CreateTree(treeDefinition);
+        }
+
+        private static TreeDefinition CreateTreeFromDirectoryCore(string path, ObjectDatabase objectDatabase, TreeDefinition treeDefinition, Func<string, string> convertToGitPath)
+        {
+            foreach (string filePath in Directory.GetFiles(path))
+            {
+                var gitPath = convertToGitPath(filePath);
+                using (var fs = File.OpenRead(filePath))
+                {
+                    var blob = objectDatabase.CreateBlob(fs, gitPath);
+                    var mode = GetFileModeForPath(filePath);
+                    treeDefinition = treeDefinition.Add(gitPath, blob, mode);
+                }
+            }
+
+            foreach (string subPath in Directory.GetDirectories(path))
+            {
+                treeDefinition = CreateTreeFromDirectoryCore(subPath, objectDatabase, treeDefinition, convertToGitPath);
+            }
+
+            return treeDefinition;
         }
     }
 }
