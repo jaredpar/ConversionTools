@@ -16,6 +16,23 @@ namespace OneWayMirror.Core
 {
     internal sealed class OneWayMirror
     {
+        private struct CommitRange
+        {
+            internal readonly Commit OldCommit;
+            internal readonly Commit NewCommit;
+
+            internal CommitRange(Commit oldCommit, Commit newCommit)
+            {
+                OldCommit = oldCommit;
+                NewCommit = newCommit;
+            }
+
+            public override string ToString()
+            {
+                return string.Format("{0} -> {1}", OldCommit.Sha.Substring(6), NewCommit.Sha.Substring(6));
+            }
+        }
+
         private readonly IHost _host;
 
         /// <summary>
@@ -61,16 +78,20 @@ namespace OneWayMirror.Core
                     return;
                 }
 
-                var commit = _repository.Refs["upstream/master"].ResolveAs<Commit>();
+                var commit = _repository.Refs["refs/remotes/upstream/master"].ResolveAs<Commit>();
                 if (commit.Sha == baseCommit.Sha)
                 {
                     Thread.Sleep(TimeSpan.FromMinutes(1));
                     continue;
                 }
 
-                UpdateWorkspaceToLatest();
+                if (!UpdateWorkspaceToLatest())
+                {
+                    return;
+                }
 
-                if (!ApplyCommitToWorkspace(baseCommit, commit))
+                var commitRange = new CommitRange(oldCommit: baseCommit, newCommit: commit);
+                if (!ApplyCommitToWorkspace(commitRange))
                 {
                     return;
                 }
@@ -112,36 +133,52 @@ namespace OneWayMirror.Core
             }
         }
 
-        private void UpdateWorkspaceToLatest()
+        private bool UpdateWorkspaceToLatest()
         {
-            _workspace.Get();
+            _host.Verbose("Updating TFS from server");
+            if (_workspace.GetPendingChanges().Length > 0)
+            {
+                _host.Error("Pending changes detected in TFS enlistment");
+                return false;
+            }
+
+            try
+            {
+                _workspace.Get();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _host.Error("Error syncing TFS: {0}", ex.Message);
+                return false;
+            }
         }
 
         /// <summary>
         /// Apply the changes between the two commits to the TFS workspace.  This will make the 
         /// changes as granular as possible. 
         /// </summary>
-        private bool ApplyCommitToWorkspace(Commit commit, Commit previousCommit)
+        private bool ApplyCommitToWorkspace(CommitRange commitRange)
         {
-            var toApply = new Stack<Tuple<Commit, Commit>>();
-            var current = commit;
+            var toApply = new Stack<CommitRange>();
+            var current = commitRange.NewCommit;
+            var oldCommit = commitRange.OldCommit;
 
-            while (current.Sha != previousCommit.Sha && current.Parents.Count() == 1)
+            while (current.Sha != oldCommit.Sha && current.Parents.Count() == 1)
             {
                 var parent = current.Parents.ElementAt(0);
-                toApply.Push(Tuple.Create(current, parent));
+                toApply.Push(new CommitRange(oldCommit: parent, newCommit: current));
                 current = parent;
             }
 
-            if (current.Sha != previousCommit.Sha)
+            if (current.Sha != oldCommit.Sha)
             {
-                toApply.Push(Tuple.Create(current, previousCommit));
+                toApply.Push(new CommitRange(oldCommit: oldCommit, newCommit: current));
             }
 
             while (toApply.Count > 0)
             {
-                var tuple = toApply.Pop();
-                if (!ApplyCommitToWorkspaceCore(tuple.Item1, tuple.Item2))
+                if (!ApplyCommitToWorkspaceCore(toApply.Pop()))
                 {
                     return false;
                 }
@@ -155,16 +192,17 @@ namespace OneWayMirror.Core
         /// state at the time the application of the commit occurs.
         /// <return>True if the operation was completed successfully (or there was simply no work to do)</return>
         /// </summary>
-        private bool ApplyCommitToWorkspaceCore(Commit commit, Commit previousCommit)
+        private bool ApplyCommitToWorkspaceCore(CommitRange commitRange)
         {
             Debug.Assert(_workspace.GetPendingChanges().Length == 0);
 
-            _host.Status("Applying {0}", commit.Sha);
+            var newCommit = commitRange.NewCommit;
+            _host.Status("Applying {0}", newCommit);
 
             // Note: This is a suboptimal way of building the tree.  The file system can be changed by 
             // local builds and such.  Much better to build directly from the Workspace object.
             var workspaceTree = GitUtils.CreateTreeFromWorkspace(_workspace, _workspacePath, _repository.ObjectDatabase);
-            var treeChanges = _repository.Diff.Compare<TreeChanges>(workspaceTree, commit.Tree, compareOptions: new LibGit2Sharp.CompareOptions() { Similarity = SimilarityOptions.Renames });
+            var treeChanges = _repository.Diff.Compare<TreeChanges>(workspaceTree, newCommit.Tree, compareOptions: new LibGit2Sharp.CompareOptions() { Similarity = SimilarityOptions.Renames });
 
             if (!treeChanges.Any())
             {
@@ -177,8 +215,8 @@ namespace OneWayMirror.Core
                 return false;
             }
 
-            var checkinMessage = CreateCheckinMessage(commit, previousCommit);
-            if (_confirmBeforeCheckin && !ConfirmCheckin(commit, checkinMessage))
+            var checkinMessage = CreateCheckinMessage(commitRange);
+            if (_confirmBeforeCheckin && !ConfirmCheckin(newCommit, checkinMessage))
             {
                 return false;
             }
@@ -212,20 +250,20 @@ namespace OneWayMirror.Core
             return _host.ConfirmCheckin(shelvesetName);
         }
 
-        private string CreateCheckinMessage(Commit commit, Commit previousCommit)
+        private string CreateCheckinMessage(CommitRange commitRange)
         {
             var builder = new StringBuilder();
             builder.AppendLine("Port Git -> TFS");
             builder.AppendLine();
-            builder.AppendFormatLine("From: {0}", previousCommit.Sha);
-            builder.AppendFormatLine("To: {0}", commit.Sha);
+            builder.AppendFormatLine("From: {0}", commitRange.OldCommit.Sha);
+            builder.AppendFormatLine("To: {0}", commitRange.NewCommit.Sha);
             builder.AppendLine();
             builder.AppendLine("This commit was generated automatically by a tool.  Contact dotnet-bot@microsoft.com for help.");
             builder.AppendLine();
-            builder.AppendFormatLine("[git-commit-sha: {0}]", commit.Sha);
+            builder.AppendFormatLine("[git-commit-sha: {0}]", commitRange.NewCommit.Sha);
 
             var uriBuilder = new UriBuilder(_repositoryUrl);
-            uriBuilder.Path = string.Format("commit/{0}", commit.Sha);
+            uriBuilder.Path = string.Format("commit/{0}", commitRange.NewCommit.Sha);
             builder.AppendFormatLine("[git-commit-url: {0}", uriBuilder.ToString());
 
             return builder.ToString();
