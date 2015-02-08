@@ -3,10 +3,11 @@ using System.IO;
 using System.Linq;
 
 using LibGit2Sharp;
+using Microsoft.TeamFoundation.VersionControl.Client;
 
 namespace OneWayMirror.Core
 {
-    internal static class GitUtils
+    public static class GitUtils
     {
         internal const string GitMirrorFile = ".gitmirror";
         internal const string GitMirrorAllFile = ".gitmirrorall";
@@ -183,6 +184,33 @@ namespace OneWayMirror.Core
             }
 
             return treeDefinition;
+        }
+
+        /// <summary>
+        /// Creates a TreeDefinition from the state of the Workspace object.  
+        /// </summary>
+        public static Tree CreateTreeFromWorkspace(Workspace workspace, string workspacePath, ObjectDatabase objectDatabase)
+        {
+            var treeDefinition = new TreeDefinition();
+            var itemSpec = new ItemSpec(workspacePath, RecursionType.Full);
+            var allItems = workspace.GetItems(new[] { itemSpec }, DeletedState.NonDeleted, ItemType.File, generateDownloadUrls: false, getItemsOptions: GetItemsOptions.LocalOnly);
+            Release.Assert(allItems.Length == 1);
+
+            foreach (var item in allItems[0].Items)
+            {
+                var filePath = item.LocalItem;
+                var gitPath = filePath.Substring(workspacePath.Length + 1);
+                gitPath = gitPath.Replace('\\', '/');
+
+                using (var fs = File.OpenRead(filePath))
+                {
+                    var blob = objectDatabase.CreateBlob(fs, gitPath);
+                    var mode = GetFileModeForPath(filePath);
+                    treeDefinition = treeDefinition.Add(gitPath, blob, mode);
+                }
+            }
+
+            return objectDatabase.CreateTree(treeDefinition);
         }
     }
 }

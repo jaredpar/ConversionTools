@@ -58,7 +58,7 @@ namespace OneWayMirror.Core
             return FindLastMirroredSha(tfsWorkspace.VersionControlServer, tfsWorkspacePath).Sha;
         }
 
-        private static Workspace GetTfsWorkspace(Uri tfsCollection, string tfsWorkspacePath)
+        public static Workspace GetTfsWorkspace(Uri tfsCollection, string tfsWorkspacePath)
         {
             var tfsServer = new TfsTeamProjectCollection(tfsCollection);
             tfsServer.EnsureAuthenticated();
