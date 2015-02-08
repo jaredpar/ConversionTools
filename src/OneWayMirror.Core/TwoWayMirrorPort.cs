@@ -351,7 +351,8 @@ namespace OneWayMirror.Core
 
             _gitHub = new Octokit.GitHubClient(new Octokit.ProductHeaderValue("dotnetTwoWayTFSMirror"));
             _gitHub.Credentials = new Octokit.Credentials(config.GitHubApiKey);
-            // _gitHubPushOptions = new PushOptions() { CredentialsProvider = GitHubCredentialsProvider };
+            _gitHubPushOptions = new PushOptions() { CredentialsProvider = GitHubCredentialsProvider };
+            _logger = null;
         }
 
         /*

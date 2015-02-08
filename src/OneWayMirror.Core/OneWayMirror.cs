@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OneWayMirror.Core
@@ -26,13 +27,105 @@ namespace OneWayMirror.Core
         private readonly Workspace _workspace;
         private readonly Repository _repository;
         private readonly Uri _repositoryUrl;
+        private readonly Credentials _repositoryCredentials;
         private readonly bool _confirmBeforeCheckin;
 
         internal OneWayMirror(
             Workspace workspace,
+            string workspacePath,
+            Repository repository, 
+            Uri repositoryUrl,
+            Credentials repositoryCredentials,
+            bool confirmBeforeCheckin,
+            IHost host,
             ILogger logger)
         {
+            _host = host;
             _logger = logger;
+            _workspace = workspace;
+            _workspacePath = workspacePath;
+            _repository = repository;
+            _repositoryUrl = repositoryUrl;
+            _repositoryCredentials = repositoryCredentials;
+            _confirmBeforeCheckin = confirmBeforeCheckin;
+        }
+
+        /// <summary>
+        /// Run the server loop assuming the last successfully sync'd commit is the given value.
+        /// </summary>
+        internal void Run(Commit baseCommit)
+        {
+            // TODO: Add cancellation, async, etc ... to the loop 
+
+            while (true)
+            {
+                FetchGitLatest();
+
+                var commit = _repository.Refs["upstream/master"].ResolveAs<Commit>();
+                if (commit.Sha == baseCommit.Sha)
+                {
+                    Thread.Sleep(TimeSpan.FromMinutes(1));
+                    continue;
+                }
+
+                UpdateWorkspaceToLatest();
+
+                if (!ApplyCommitToWorkspace(baseCommit, commit))
+                {
+                    return;
+                }
+
+                baseCommit = commit;
+            }
+        }
+
+        private void FetchGitLatest()
+        {
+            _logger.Verbose("Updating Git from upstream/master.");
+
+            Remote upstream = _repository.Network.Remotes["upstream"];
+
+            var fetchOptions = new FetchOptions();
+            fetchOptions.CredentialsProvider = (url, userNameForUrl, type) => _repositoryCredentials;
+            _repository.Network.Fetch(upstream, fetchOptions);
+        }
+
+        private void UpdateWorkspaceToLatest()
+        {
+            _workspace.Get();
+        }
+
+        /// <summary>
+        /// Apply the changes between the two commits to the TFS workspace.  This will make the 
+        /// changes as granular as possible. 
+        /// </summary>
+        private bool ApplyCommitToWorkspace(Commit commit, Commit previousCommit)
+        {
+            var toApply = new Stack<Tuple<Commit, Commit>>();
+            var current = commit;
+
+            while (current.Sha != previousCommit.Sha && current.Parents.Count() == 1)
+            {
+                var parent = current.Parents.ElementAt(0);
+                toApply.Push(Tuple.Create(current, parent));
+                current = parent;
+            }
+
+            if (current.Sha != previousCommit.Sha)
+            {
+                toApply.Push(Tuple.Create(current, previousCommit));
+            }
+
+            while (toApply.Count > 0)
+            {
+                var tuple = toApply.Pop();
+                if (!ApplyCommitToWorkspaceCore(tuple.Item1, tuple.Item2))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -40,7 +133,7 @@ namespace OneWayMirror.Core
         /// state at the time the application of the commit occurs.
         /// <return>True if the operation was completed successfully (or there was simply no work to do)</return>
         /// </summary>
-        private bool ApplyCommitToWorkspace(Commit commit, Commit previousCommit)
+        private bool ApplyCommitToWorkspaceCore(Commit commit, Commit previousCommit)
         {
             Debug.Assert(_workspace.GetPendingChanges().Length == 0);
 
