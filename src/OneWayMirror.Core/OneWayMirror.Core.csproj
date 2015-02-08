@@ -51,7 +51,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Conig.cs" />
+    <Compile Include="Config.cs" />
     <Compile Include="GitUtils.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="OneWayMirror.cs" />
