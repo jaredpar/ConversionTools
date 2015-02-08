@@ -13,7 +13,7 @@ namespace OneWayMirror.Core
 {
     public static class OneWayMirrorUtil
     {
-        private static readonly Regex s_checkinShaRegex = new Regex(@"\[git-commit-sha: ([a-z0-9])\]", RegexOptions.Compiled);
+        private static readonly Regex s_checkinShaRegex = new Regex(@"\[git-commit-sha: ([a-z0-9]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public static void Run(
             IHost host,
@@ -25,12 +25,7 @@ namespace OneWayMirror.Core
             Credentials credentials,
             bool confirmBeforeCheckin = false)
         {
-            var tfsServer = new TfsTeamProjectCollection(tfsCollection);
-            tfsServer.EnsureAuthenticated();
-
-            var vcServer = tfsServer.GetService<VersionControlServer>();
-            var tfsWorkspace = vcServer.GetWorkspace(tfsWorkspacePath);
-
+            var tfsWorkspace = GetTfsWorkspace(tfsCollection, tfsWorkspacePath);
             var workspacePath = string.IsNullOrEmpty(tfsWorkspaceTargetDirectory)
                 ? tfsWorkspacePath
                 : Path.Combine(tfsWorkspacePath, tfsWorkspaceTargetDirectory);
@@ -46,7 +41,7 @@ namespace OneWayMirror.Core
                 credentials,
                 confirmBeforeCheckin);
 
-            var sha = FindLastMirroredSha(vcServer, tfsWorkspaceTargetDirectory);
+            var sha = FindLastMirroredSha(tfsWorkspace.VersionControlServer, tfsWorkspaceTargetDirectory);
             if (sha == null)
             {
                 host.Error("Could not find the last mirrored SHA1");
@@ -55,6 +50,21 @@ namespace OneWayMirror.Core
 
             var commit = gitRepository.Lookup<Commit>(sha);
             oneWayMirror.Run(commit);
+        }
+
+        public static string FindLastMirroredSha(Uri tfsCollection, string tfsWorkspacePath)
+        {
+            var tfsWorkspace = GetTfsWorkspace(tfsCollection, tfsWorkspacePath);
+            return FindLastMirroredSha(tfsWorkspace.VersionControlServer, tfsWorkspacePath).Sha;
+        }
+
+        private static Workspace GetTfsWorkspace(Uri tfsCollection, string tfsWorkspacePath)
+        {
+            var tfsServer = new TfsTeamProjectCollection(tfsCollection);
+            tfsServer.EnsureAuthenticated();
+
+            var vcServer = tfsServer.GetService<VersionControlServer>();
+            return vcServer.GetWorkspace(tfsWorkspacePath);
         }
 
         /// <summary>
