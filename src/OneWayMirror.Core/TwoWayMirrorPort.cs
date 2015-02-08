@@ -15,6 +15,14 @@ namespace OneWayMirror.Core
 {
     partial class TwoWayMirror
     {
+        public interface ILogger
+        {
+            void Information(string format, params object[] args);
+            void Verbose(string format, params object[] args);
+            void Warning(string format, params object[] args);
+            void Error(string format, params object[] args);
+        }
+
         private static readonly Regex s_PortedFromTfsRegex = new Regex(@"\[tfs-changeset: (?<changeset>\d+)\]");
 
         /// <summary>

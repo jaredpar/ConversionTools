@@ -17,7 +17,6 @@ namespace OneWayMirror.Core
     internal sealed class OneWayMirror
     {
         private readonly IHost _host;
-        private readonly ILogger _logger;
 
         /// <summary>
         /// This is the path within the workspace where the git changes are mirrored to.  It 
@@ -31,17 +30,15 @@ namespace OneWayMirror.Core
         private readonly bool _confirmBeforeCheckin;
 
         internal OneWayMirror(
+            IHost host,
             Workspace workspace,
             string workspacePath,
             Repository repository, 
             Uri repositoryUrl,
             Credentials repositoryCredentials,
-            bool confirmBeforeCheckin,
-            IHost host,
-            ILogger logger)
+            bool confirmBeforeCheckin)
         {
             _host = host;
-            _logger = logger;
             _workspace = workspace;
             _workspacePath = workspacePath;
             _repository = repository;
@@ -81,7 +78,7 @@ namespace OneWayMirror.Core
 
         private void FetchGitLatest()
         {
-            _logger.Verbose("Updating Git from upstream/master.");
+            _host.Verbose("Updating Git from upstream/master.");
 
             Remote upstream = _repository.Network.Remotes["upstream"];
 
@@ -137,7 +134,7 @@ namespace OneWayMirror.Core
         {
             Debug.Assert(_workspace.GetPendingChanges().Length == 0);
 
-            _logger.Information("Applying {0}", commit.Sha);
+            _host.Status("Applying {0}", commit.Sha);
 
             // Note: This is a suboptimal way of building the tree.  The file system can be changed by 
             // local builds and such.  Much better to build directly from the Workspace object.
@@ -146,7 +143,7 @@ namespace OneWayMirror.Core
 
             if (!treeChanges.Any())
             {
-                _logger.Information("No changes to apply");
+                _host.Status("No changes to apply");
                 return true;
             }
 
@@ -170,7 +167,7 @@ namespace OneWayMirror.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("Unable to complete checkin: {0}", ex.Message);
+                _host.Error("Unable to complete checkin: {0}", ex.Message);
                 return false;
             }
 
@@ -220,7 +217,7 @@ namespace OneWayMirror.Core
             // Construct a CS based on the Diff.
             foreach (var changeEntry in treeChanges)
             {
-                _logger.Verbose("Pending Change: {OldPath}({OldOid}:{OldMode}) -> {NewPath}({NewOld}:{NewMode}) {Status}.", changeEntry.OldPath, changeEntry.OldOid, changeEntry.OldMode, changeEntry.Path, changeEntry.Oid, changeEntry.Mode, changeEntry.Status);
+                _host.Verbose("Pending Change: {OldPath}({OldOid}:{OldMode}) -> {NewPath}({NewOld}:{NewMode}) {Status}.", changeEntry.OldPath, changeEntry.OldOid, changeEntry.OldMode, changeEntry.Path, changeEntry.Oid, changeEntry.Mode, changeEntry.Status);
 
                 var tfsFilePath = GetTfsWorkspacePath(changeEntry.Path);
                 switch (changeEntry.Status)
@@ -251,7 +248,7 @@ namespace OneWayMirror.Core
                         }
                         break;
                     default:
-                        _logger.Error("Unknown change {0}({1}:{2}) -> {3}({4}:{5}) {6}!", changeEntry.OldPath, changeEntry.OldOid, changeEntry.OldMode, changeEntry.Path, changeEntry.Oid, changeEntry.Mode, changeEntry.Status);
+                        _host.Error("Unknown change {0}({1}:{2}) -> {3}({4}:{5}) {6}!", changeEntry.OldPath, changeEntry.OldOid, changeEntry.OldMode, changeEntry.Path, changeEntry.Oid, changeEntry.Mode, changeEntry.Status);
                         return false;
                 }
             }

@@ -55,8 +55,8 @@
     <Compile Include="Extensions.cs" />
     <Compile Include="GitUtils.cs" />
     <Compile Include="IHost.cs" />
-    <Compile Include="Logger.cs" />
     <Compile Include="OneWayMirror.cs" />
+    <Compile Include="OneWayMirrorUtil.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Release.cs" />
     <Compile Include="TwoWayMirrorPort.cs" />
