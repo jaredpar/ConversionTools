@@ -1,13 +1,20 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneWayMirror.Core", "src\OneWayMirror.Core\OneWayMirror.Core.csproj", "{9102C0B6-BE39-48E7-9057-84C5A584C738}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneWayMirror", "OneWayMirror\OneWayMirror.csproj", "{C0D015B9-93A4-41ED-AADB-9DDC5018DE78}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneWayMirror", "src\OneWayMirror\OneWayMirror.csproj", "{C0D015B9-93A4-41ED-AADB-9DDC5018DE78}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreateFullEnlistment", "CreateFullEnlistment\CreateFullEnlistment.csproj", "{1BB0D2DF-D1A0-4CFB-A1CE-C7CF89CA0242}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreateFullEnlistment", "src\CreateFullEnlistment\CreateFullEnlistment.csproj", "{1BB0D2DF-D1A0-4CFB-A1CE-C7CF89CA0242}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{DD0619E1-DC12-47E7-8616-83186B1ED9DC}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
