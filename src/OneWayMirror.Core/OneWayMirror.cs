@@ -54,7 +54,7 @@ namespace OneWayMirror.Core
             IHost host,
             Workspace workspace,
             string workspacePath,
-            Repository repository, 
+            Repository repository,
             Uri repositoryUrl,
             Credentials repositoryCredentials,
             string remoteName,
@@ -89,7 +89,7 @@ namespace OneWayMirror.Core
         }
 
         internal void RunCore(Commit baseCommit)
-        { 
+        {
             // TODO: Add cancellation, async, etc ... to the loop 
             while (true)
             {
@@ -151,7 +151,7 @@ namespace OneWayMirror.Core
             {
                 _repository.Network.Fetch(remote, fetchOptions);
                 return true;
-            } 
+            }
             catch (Exception ex)
             {
                 _host.Error("Error fetching {0}: {1}", _remoteName, ex.Message);
@@ -166,11 +166,31 @@ namespace OneWayMirror.Core
             }
         }
 
+        /// <summary>
+        /// Does the workspace have pending changes other than a Lock against Open?
+        /// </summary>
+        /// <returns></returns>
+        private bool HasPendingChangesBesidesLock()
+        {
+            var pendingChanges = _workspace.GetPendingChanges();
+            if (pendingChanges.Length == 0)
+            {
+                return false;
+            }
+
+            if (pendingChanges.Length == 1 && pendingChanges[0].ChangeType == ChangeType.Lock)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private bool UpdateWorkspaceToLatest()
         {
             _host.Verbose("Updating TFS from server");
-            if (_workspace.GetPendingChanges().Length > 0)
-            {
+            if (HasPendingChangesBesidesLock())
+            { 
                 _host.Error("Pending changes detected in TFS enlistment");
                 return false;
             }
@@ -235,7 +255,7 @@ namespace OneWayMirror.Core
         /// </summary>
         private bool ApplyCommitToWorkspaceCore(CommitRange commitRange)
         {
-            Debug.Assert(_workspace.GetPendingChanges().Length == 0);
+            Debug.Assert(!HasPendingChangesBesidesLock());
 
             var newCommit = commitRange.NewCommit;
             _host.Status("Applying {0}", newCommit);
@@ -275,6 +295,12 @@ namespace OneWayMirror.Core
                 _host.Error("Unable to complete checkin: {0}", ex.Message);
                 _cachedWorkspaceTree = null;
                 return false;
+            }
+
+            // The check in will undo the lock so re-lock now
+            if (_lockWorkspacePath)
+            {
+                LockWorkspacePath();
             }
 
             return true;
@@ -317,7 +343,7 @@ namespace OneWayMirror.Core
         private bool ApplyGitChangeToWorkspace(TreeChanges treeChanges)
         {
             Debug.Assert(treeChanges.Any());
-            Debug.Assert(_workspace.GetPendingChanges().Length == 0);
+            Debug.Assert(!HasPendingChangesBesidesLock());
 
             // Construct a CS based on the Diff.
             foreach (var changeEntry in treeChanges)
@@ -367,7 +393,7 @@ namespace OneWayMirror.Core
             // avoid the operation.
             if (_cachedWorkspaceTree == null)
             {
-                 _cachedWorkspaceTree = GitUtils.CreateTreeFromWorkspace(_workspace, _workspacePath, _repository.ObjectDatabase);
+                _cachedWorkspaceTree = GitUtils.CreateTreeFromWorkspace(_workspace, _workspacePath, _repository.ObjectDatabase);
             }
 
             return _cachedWorkspaceTree;
