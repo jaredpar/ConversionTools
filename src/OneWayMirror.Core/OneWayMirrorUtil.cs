@@ -22,8 +22,10 @@ namespace OneWayMirror.Core
             string tfsWorkspaceTargetDirectory,
             string gitRepositoryPath,
             Uri gitRepositoryUrl,
+            string gitRemoteName,
             Credentials credentials,
-            bool confirmBeforeCheckin = false)
+            bool confirmBeforeCheckin = false,
+            bool lockWorkspacePath = false)
         {
             var tfsWorkspace = GetTfsWorkspace(tfsCollection, tfsWorkspacePath);
             var workspacePath = string.IsNullOrEmpty(tfsWorkspaceTargetDirectory)
@@ -39,7 +41,9 @@ namespace OneWayMirror.Core
                 gitRepository,
                 gitRepositoryUrl,
                 credentials,
-                confirmBeforeCheckin);
+                gitRemoteName,
+                confirmBeforeCheckin,
+                lockWorkspacePath);
 
             var sha = FindLastMirroredSha(tfsWorkspace.VersionControlServer, workspacePath);
             if (sha == null)

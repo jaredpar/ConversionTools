@@ -42,9 +42,11 @@ namespace OneWayMirror.Core
         private readonly string _workspacePath;
         private readonly Workspace _workspace;
         private readonly Repository _repository;
+        private readonly string _remoteName;
         private readonly Uri _repositoryUrl;
         private readonly Credentials _repositoryCredentials;
         private readonly bool _confirmBeforeCheckin;
+        private readonly bool _lockWorkspacePath;
 
         private Tree _cachedWorkspaceTree;
 
@@ -55,7 +57,9 @@ namespace OneWayMirror.Core
             Repository repository, 
             Uri repositoryUrl,
             Credentials repositoryCredentials,
-            bool confirmBeforeCheckin)
+            string remoteName,
+            bool confirmBeforeCheckin,
+            bool lockWorkspacePath)
         {
             _host = host;
             _workspace = workspace;
@@ -63,7 +67,9 @@ namespace OneWayMirror.Core
             _repository = repository;
             _repositoryUrl = repositoryUrl;
             _repositoryCredentials = repositoryCredentials;
+            _remoteName = remoteName;
             _confirmBeforeCheckin = confirmBeforeCheckin;
+            _lockWorkspacePath = lockWorkspacePath;
         }
 
         /// <summary>
@@ -71,8 +77,20 @@ namespace OneWayMirror.Core
         /// </summary>
         internal void Run(Commit baseCommit)
         {
-            // TODO: Add cancellation, async, etc ... to the loop 
+            LockWorkspacePath();
+            try
+            {
+                RunCore(baseCommit);
+            }
+            finally
+            {
+                UnlockWorkspacePath();
+            }
+        }
 
+        internal void RunCore(Commit baseCommit)
+        { 
+            // TODO: Add cancellation, async, etc ... to the loop 
             while (true)
             {
                 if (!FetchGitLatest())
@@ -80,7 +98,8 @@ namespace OneWayMirror.Core
                     return;
                 }
 
-                var commit = _repository.Refs["refs/remotes/upstream/master"].ResolveAs<Commit>();
+                var refName = string.Format("refs/remotes/{0}/master", _remoteName);
+                var commit = _repository.Refs[refName].ResolveAs<Commit>();
                 if (commit.Sha == baseCommit.Sha)
                 {
                     Thread.Sleep(TimeSpan.FromMinutes(1));
@@ -102,14 +121,26 @@ namespace OneWayMirror.Core
             }
         }
 
+        private void LockWorkspacePath()
+        {
+            Debug.Assert(_lockWorkspacePath);
+            _workspace.SetLock(_workspacePath, LockLevel.Checkin);
+        }
+
+        private void UnlockWorkspacePath()
+        {
+            Debug.Assert(_lockWorkspacePath);
+            _workspace.SetLock(_workspacePath, LockLevel.None);
+        }
+
         private bool FetchGitLatest()
         {
-            _host.Verbose("Updating Git from upstream/master.");
+            _host.Verbose("Updating Git from {0}/master.", _remoteName);
 
-            var upstream = _repository.Network.Remotes["upstream"];
-            if (upstream == null)
+            var remote = _repository.Network.Remotes[_remoteName];
+            if (remote == null)
             {
-                _host.Error("Git repository must have a remote named upstream");
+                _host.Error("Git repository must have a remote named {0}", _remoteName);
                 return false;
             }
 
@@ -118,17 +149,17 @@ namespace OneWayMirror.Core
 
             try
             {
-                _repository.Network.Fetch(upstream, fetchOptions);
+                _repository.Network.Fetch(remote, fetchOptions);
                 return true;
             } 
             catch (Exception ex)
             {
-                _host.Error("Error fetching upstream: {0}", ex.Message);
+                _host.Error("Error fetching {0}: {1}", _remoteName, ex.Message);
 
                 // The git protocol not correctly supported by libgit2sharp at the moment
-                if (upstream.Url.Contains("git@github"))
+                if (remote.Url.Contains("git@github"))
                 {
-                    _host.Error("upstream remote must have an https URL, currently git@github form");
+                    _host.Error("{0} remote must have an https URL, currently git@github form", _remoteName);
                 }
 
                 return false;

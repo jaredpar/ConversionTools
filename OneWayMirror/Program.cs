@@ -15,19 +15,16 @@ namespace OneWayMirror
         internal static void Main(string[] args)
         {
             var tfsCollection = new Uri("http://vstfdevdiv:8080/DevDiv2");
-            var tfsWorkspacePath = @"c:\dd\ros-tfs";
-            var gitRepositoryPath = @"c:\users\jaredpar\Documents\GitHub\roslyn";
+            var tfsWorkspacePath = @"e:\dd\ros-tfs";
+            var gitRepositoryPath = @"e:\dd\ros-git";
             var gitRepositoryUrl = new Uri("https://github.com/dotnet/roslyn");
+            var gitRemoteName = "origin";
             var token = File.ReadAllText(@"c:\users\jaredpar\token.txt").Trim();
             var credentials = new UsernamePasswordCredentials()
             {
                 Username = "jaredpar",
                 Password = token
             };
-
-            var uriBuilder = new UriBuilder(gitRepositoryUrl);
-            uriBuilder.Path = string.Format("commit/{0}", "aoeuaoeua");
-            var uri = uriBuilder.ToString();
 
             OneWayMirrorUtil.Run(
                 new ConsoleHost(verbose: true),
@@ -36,8 +33,10 @@ namespace OneWayMirror
                 "Open",
                 gitRepositoryPath,
                 gitRepositoryUrl,
+                gitRemoteName,
                 credentials,
-                confirmBeforeCheckin: true);
+                confirmBeforeCheckin: true,
+                lockWorkspacePath: true);
 
             /*
             var sha = OneWayMirrorUtil.FindLastMirroredSha(tfsCollection, @"c:\dd\ros-tfs");
