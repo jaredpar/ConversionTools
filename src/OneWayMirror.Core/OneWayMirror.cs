@@ -102,6 +102,7 @@ namespace OneWayMirror.Core
                 var commit = _repository.Refs[refName].ResolveAs<Commit>();
                 if (commit.Sha == baseCommit.Sha)
                 {
+                    _host.Verbose("No changes detected, waiting");
                     Thread.Sleep(TimeSpan.FromMinutes(1));
                     continue;
                 }
@@ -297,6 +298,8 @@ namespace OneWayMirror.Core
                 return false;
             }
 
+            _host.Status("Checkin complete for {0}", commitRange.NewCommit.Sha);
+
             // The check in will undo the lock so re-lock now
             if (_lockWorkspacePath)
             {
@@ -345,18 +348,19 @@ namespace OneWayMirror.Core
             Debug.Assert(treeChanges.Any());
             Debug.Assert(!HasPendingChangesBesidesLock());
 
-            // Construct a CS based on the Diff.
             foreach (var changeEntry in treeChanges)
             {
                 var tfsFilePath = GetTfsWorkspacePath(changeEntry.Path);
-                _host.Verbose("Pending change {0} {1} -> {2}", changeEntry.Status, changeEntry.Path, tfsFilePath);
+                var tfsFileName = Path.GetFileName(tfsFilePath);
                 switch (changeEntry.Status)
                 {
                     case ChangeKind.Added:
+                        _host.Verbose("Pending add {0}", tfsFileName);
                         WriteObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
                         _workspace.PendAdd(tfsFilePath);
                         break;
                     case ChangeKind.Deleted:
+                        _host.Verbose("Pending delete {0}", tfsFileName);
                         _workspace.PendDelete(tfsFilePath);
                         break;
                     case ChangeKind.Renamed:
@@ -368,11 +372,20 @@ namespace OneWayMirror.Core
                             CopyObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
                         }
 
+                        // If there is a path case difference between TFS and Git then it will keep showing
+                        // up as a rename until an explicit path change occurs in TFS.  Don't report such
+                        // differences as pends because it just causes noise to the output.
+                        if (!StringComparer.OrdinalIgnoreCase.Equals(changeEntry.OldPath, changeEntry.Path))
+                        {
+                            _host.Verbose("Pending rename {0}", tfsFileName);
+                        }
+
                         break;
                     case ChangeKind.Modified:
                         Debug.Assert(changeEntry.Oid != changeEntry.OldOid || changeEntry.OldMode != changeEntry.Mode);
                         if (changeEntry.OldOid != changeEntry.Oid)
                         {
+                            _host.Verbose("Pending edit {0}", tfsFileName);
                             _workspace.PendEdit(tfsFilePath);
                             CopyObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
                         }

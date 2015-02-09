@@ -18,7 +18,7 @@ namespace OneWayMirror
             var tfsWorkspacePath = @"e:\dd\ros-tfs";
             var gitRepositoryPath = @"e:\dd\ros-git";
             var gitRepositoryUrl = new Uri("https://github.com/dotnet/roslyn");
-            var gitRemoteName = "origin";
+            var gitRemoteName = "upstream";
             var token = File.ReadAllText(@"c:\users\jaredpar\token.txt").Trim();
             var credentials = new UsernamePasswordCredentials()
             {
