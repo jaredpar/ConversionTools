@@ -63,11 +63,33 @@ namespace OneWayMirror.Core
 
         public static Workspace GetTfsWorkspace(Uri tfsCollection, string tfsWorkspacePath)
         {
-            var tfsServer = new TfsTeamProjectCollection(tfsCollection);
-            tfsServer.EnsureAuthenticated();
+            try
+            {
+                var tfsServer = new TfsTeamProjectCollection(tfsCollection);
+                tfsServer.EnsureAuthenticated();
 
-            var vcServer = tfsServer.GetService<VersionControlServer>();
-            return vcServer.GetWorkspace(tfsWorkspacePath);
+                var vcServer = tfsServer.GetService<VersionControlServer>();
+
+                // Can't use GetWorkspace(location) because it fails on machines with multiple 
+                // workspaces that have the same server path.  Instead we have to query all local
+                // workspaces and find the one with the right folder
+                foreach (var workspace in vcServer.QueryWorkspaces(null, null, Environment.MachineName))
+                {
+                    foreach (var folder in workspace.Folders)
+                    {
+                        if (folder.LocalItem.StartsWith(tfsWorkspacePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return workspace;
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

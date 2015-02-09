@@ -49,7 +49,23 @@ namespace CreateFullEnlistment
                 tfsServer.EnsureAuthenticated();
 
                 var vcServer = tfsServer.GetService<VersionControlServer>();
-                return vcServer.GetWorkspace(workspacePath);
+
+                // Can't use GetWorkspace(location) because it fails on machines with multiple 
+                // workspaces that have the same server path.  Instead we have to query all local
+                // workspaces and find the one with the right folder
+                foreach (var workspace in vcServer.QueryWorkspaces(null, null, Environment.MachineName))
+                {
+                    foreach (var folder in workspace.Folders)
+                    {
+                        if (folder.LocalItem.StartsWith(workspacePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return workspace;
+                        }
+                    }
+                }
+
+                Console.WriteLine("No workspace with that path");
+                return null;
             }
             catch (Exception ex)
             {
