@@ -75,8 +75,22 @@ namespace OneWayMirror.Core
         /// <summary>
         /// Run the server loop assuming the last successfully sync'd commit is the given value.
         /// </summary>
-        internal void Run(Commit baseCommit)
+        internal void Run(ObjectId baseCommitId)
         {
+            // Grab the Commit object for the base commit.  It is possible this is a commit that
+            // doesn't yet exist locally so sync it down. 
+            if (!FetchGitLatest())
+            {
+                return;
+            }
+
+            var baseCommit = _repository.Lookup(baseCommitId) as Commit;
+            if (baseCommit == null)
+            {
+                _host.Error("Cannot load the base commit object: {0}", baseCommitId);
+                return;
+            }
+
             LockWorkspacePath();
             try
             {

@@ -136,6 +136,7 @@ namespace CreateFullEnlistment
             repository.Network.Remotes.Remove("origin");
             repository.Network.Remotes.Add("origin", string.Format("git@github.com:{0}/roslyn.git", githubUserName));
             repository.Network.Remotes.Add("upstream", "https://github.com/dotnet/roslyn.git");
+
             return true;
         }
 

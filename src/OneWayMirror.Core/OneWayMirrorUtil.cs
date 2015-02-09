@@ -52,8 +52,7 @@ namespace OneWayMirror.Core
                 return;
             }
 
-            var commit = gitRepository.Lookup<Commit>(sha);
-            oneWayMirror.Run(commit);
+            oneWayMirror.Run(sha);
         }
 
         public static string FindLastMirroredSha(Uri tfsCollection, string tfsWorkspacePath)

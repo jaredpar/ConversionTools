@@ -15,16 +15,19 @@ namespace OneWayMirror
         internal static void Main(string[] args)
         {
             var tfsCollection = new Uri("http://vstfdevdiv:8080/DevDiv2");
-            var tfsWorkspacePath = @"e:\dd\ros-tfs";
-            var gitRepositoryPath = @"e:\dd\ros-git";
             var gitRepositoryUrl = new Uri("https://github.com/dotnet/roslyn");
-            var gitRemoteName = "upstream";
             var token = File.ReadAllText(@"c:\users\jaredpar\token.txt").Trim();
+            var gitRemoteName = "upstream";
             var credentials = new UsernamePasswordCredentials()
             {
                 Username = "jaredpar",
                 Password = token
             };
+
+            // var tfsWorkspacePath = @"e:\dd\ros-tfs";
+            // var gitRepositoryPath = @"e:\dd\ros-git";
+            var tfsWorkspacePath = @"c:\dd\ros-tfs";
+            var gitRepositoryPath = @"C:\Users\jaredpar\Documents\GitHub\roslyn";
 
             OneWayMirrorUtil.Run(
                 new ConsoleHost(verbose: true),
