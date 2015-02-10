@@ -1,0 +1,131 @@
+﻿<platformUi:DialogWindow x:Class="Alteridem.GitHub.Extension.View.IssueEditor"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:viewModel="clr-namespace:Alteridem.GitHub.Extension.ViewModel"
+        xmlns:view="clr-namespace:Alteridem.GitHub.Extension.View"
+        xmlns:platformUi="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.11.0"
+        xmlns:controls="clr-namespace:Alteridem.GitHub.Extension.View.Controls"
+        mc:Ignorable="d" 
+        d:DataContext="{d:DesignInstance viewModel:IssueEditorViewModel}"
+        WindowStartupLocation="CenterOwner"
+        Title="Issue" 
+        Height="810" 
+        Width="553" >
+    <platformUi:DialogWindow.Resources>
+        <ResourceDictionary Source="LightTheme.xaml" />
+    </platformUi:DialogWindow.Resources>
+    <DockPanel LastChildFill="True">
+        <Label DockPanel.Dock="Top" Content="Title" Style="{StaticResource Label}"/>
+        <TextBox DockPanel.Dock="Top" Style="{StaticResource TextBox}" Text="{Binding Path=Title, Mode=TwoWay}" />
+
+        <Label DockPanel.Dock="Top" Content="Labels" Style="{StaticResource Label}"/>
+        <DockPanel DockPanel.Dock="Top" Style="{StaticResource ComboBoxDockPanel}">
+
+            <Button DockPanel.Dock="Right" 
+                    Command="{Binding Path=SetLabelsCommand}"
+                    Content="&#xf046;"
+                    FontFamily="/Alteridem.GitHub.Extension;Component/Fonts/#FontAwesome"
+                    FontSize="22" 
+                    Width="30" Height="30" 
+                    Foreground="#FF333333" 
+                    Margin="6,0,0,0"
+                    ToolTip="Pick Labels"/>
+            
+            <ListBox ItemsSource="{Binding SelectedLabels}" 
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     DockPanel.Dock="Left" IsEnabled="False">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel IsItemsHost="True" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <HierarchicalDataTemplate>
+                        <controls:LabelControl />
+                    </HierarchicalDataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+        
+        <Label DockPanel.Dock="Top" Content="Assignee" Style="{StaticResource Label}"/>
+        <DockPanel DockPanel.Dock="Top" Style="{StaticResource ComboBoxDockPanel}">
+            <Button 
+                DockPanel.Dock="Right"
+                Command="{Binding Path=ClearAssigneeCommand}"
+                Content="&#xf05c;"
+                FontFamily="/Alteridem.GitHub.Extension;Component/Fonts/#FontAwesome"
+                FontSize="22" 
+                Width="30" Height="30" 
+                Foreground="#FF333333" 
+                Margin="6,0,0,0" 
+                ToolTip="Clear Assignee"/>
+            <ComboBox 
+                DockPanel.Dock="Right" 
+                Style="{StaticResource ComboBox}" 
+                DisplayMemberPath="Login"
+                ItemsSource="{Binding Path=Assignees}"
+                SelectedValue="{Binding Path=Assignee}" />
+        </DockPanel>
+
+        <Label DockPanel.Dock="Top" Content="Milestone" Style="{StaticResource Label}"/>
+        <DockPanel DockPanel.Dock="Top" Style="{StaticResource ComboBoxDockPanel}">
+            <Button 
+                DockPanel.Dock="Right"
+                Command="{Binding Path=ClearMilestoneCommand}"
+                Content="&#xf05c;"
+                FontFamily="/Alteridem.GitHub.Extension;Component/Fonts/#FontAwesome"
+                FontSize="22" 
+                Width="30" Height="30" 
+                Foreground="#FF333333" 
+                Margin="6,0,0,0" 
+                ToolTip="Clear Milestone"/>
+            <ComboBox 
+                DockPanel.Dock="Top" 
+                Style="{StaticResource ComboBox}"
+                ItemTemplate="{StaticResource MilestoneTemplate}"
+                ItemsSource="{Binding Path=Milestones}"
+                SelectedValue="{Binding Path=Milestone}" />
+        </DockPanel>
+
+        <Label DockPanel.Dock="Top" Content="Description" Style="{StaticResource Label}"/>
+
+        <DockPanel DockPanel.Dock="Bottom" LastChildFill="False" Margin="12">
+            <Button 
+                Style="{StaticResource Button}" 
+                DockPanel.Dock="Right" 
+                IsCancel="True" 
+                Command="{Binding Path=CancelCommand}" 
+                CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=view:IssueEditor}}" >
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource FontAwesome}" Text="&#xf00d;" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Cancel" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button 
+                Style="{StaticResource Button}" 
+                DockPanel.Dock="Right"
+                IsDefault="True" 
+                Command="{Binding Path=SaveCommand}"
+                CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=view:IssueEditor}}" Click="Button_Click" >
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource FontAwesome}" Text="&#xf0c7;" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Save" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </DockPanel>
+
+        <TabControl x:Name="BodyTabControl" DockPanel.Dock="Top" Margin="12,3,12,0">
+            <TabItem x:Name="WriteTab" Header="Write">
+                <TextBox TextWrapping="WrapWithOverflow" AcceptsReturn="True" AcceptsTab="True" Text="{Binding Path=Body, Mode=TwoWay}" />
+            </TabItem>
+            <TabItem x:Name="PreviewTab" Header="Preview">
+                <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="1" Padding="0">
+                    <WebBrowser OpacityMask="White" ScrollViewer.VerticalScrollBarVisibility="Auto" view:WebBrowserBehavior.Html="{Binding Path=Body, Converter={StaticResource MarkdownConverter}}" />
+                </Border>
+            </TabItem>
+        </TabControl>
+
+    </DockPanel>
+</platformUi:DialogWindow>

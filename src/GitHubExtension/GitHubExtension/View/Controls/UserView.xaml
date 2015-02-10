@@ -1,0 +1,52 @@
+﻿<UserControl x:Name="GitHubUser" x:Class="Alteridem.GitHub.Extension.View.Controls.UserView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:view="clr-namespace:Alteridem.GitHub.Extension.View"
+             xmlns:viewModel="clr-namespace:Alteridem.GitHub.Extension.ViewModel"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance viewModel:UserViewModel}"
+             d:DesignHeight="32" d:DesignWidth="200">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="..\Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <StackPanel Orientation="Horizontal">
+        <view:Avatar AvatarUrl="{Binding User.AvatarUrl, Mode=OneWay}" Size="20" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="6,6,3,6" />
+    <TextBlock x:Name="Login" VerticalAlignment="Center" HorizontalAlignment="Left" Height="20" Margin="3,0,3,6" 
+                      FontFamily="Verdana" FontSize="12" Text="{Binding User.Login}" />
+        <Button x:Name="LoginOut" 
+                VerticalAlignment="Center" 
+                HorizontalAlignment="Right"
+                Height="20" 
+                Margin="3,6,6,6"
+                FontSize="18" 
+                FocusVisualStyle="{x:Null}"
+                Foreground="{DynamicResource {x:Static view:Theme.ForegroundKey}}"
+                Command="{Binding Path=LoginCommand}" >
+            <Button.Template>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <ContentPresenter />
+                </ControlTemplate>
+            </Button.Template>
+            <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource FontAwesome}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding LoggedIn}" Value="False">
+                            <Setter Property="Content" Value="&#xf090;"></Setter>
+                            <Setter Property="ToolTip" Value="Log In"></Setter>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding LoggedIn}" Value="True">
+                            <Setter Property="Content" Value="&#xf08b;"></Setter>
+                            <Setter Property="ToolTip" Value="Log Out"></Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+        </Button>
+    </StackPanel>
+</UserControl>

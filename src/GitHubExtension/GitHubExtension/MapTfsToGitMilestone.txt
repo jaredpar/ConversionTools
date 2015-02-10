@@ -1,0 +1,5 @@
+S77 CTP 6 (in RC), 1.0-rc1
+RC, 1.0-rc2
+RTM, 1.0 (stable)
+S79 CTP (in RTM), 1.0 (stable)
+S80 CTP (in RTM), 1.0 (stable)
