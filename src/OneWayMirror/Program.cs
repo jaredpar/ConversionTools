@@ -24,13 +24,13 @@ namespace OneWayMirror
                 Password = token
             };
 
-            // var tfsWorkspacePath = @"e:\dd\ros-tfs";
-            // var gitRepositoryPath = @"e:\dd\ros-git";
-            var tfsWorkspacePath = @"c:\dd\ros-tfs";
-            var gitRepositoryPath = @"C:\Users\jaredpar\Documents\GitHub\roslyn";
+            var tfsWorkspacePath = @"e:\dd\ros-tfs";
+            var gitRepositoryPath = @"e:\dd\ros-git";
+            // var tfsWorkspacePath = @"c:\dd\ros-tfs";
+            // var gitRepositoryPath = @"C:\Users\jaredpar\Documents\GitHub\roslyn";
 
             OneWayMirrorUtil.Run(
-                new ConsoleHost(verbose: true),
+                new ReportingConsoleHost(verbose: true, reportEmailAddress: "jaredpar@microsoft.com"),
                 tfsCollection,
                 tfsWorkspacePath,
                 "Open",
@@ -38,7 +38,7 @@ namespace OneWayMirror
                 gitRepositoryUrl,
                 gitRemoteName,
                 credentials,
-                confirmBeforeCheckin: true,
+                confirmBeforeCheckin: false,
                 lockWorkspacePath: true);
 
             /*

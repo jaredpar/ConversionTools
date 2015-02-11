@@ -99,17 +99,25 @@ namespace OneWayMirror.Core
         {
             var itemSpec = new ItemSpec(path, RecursionType.Full);
             var parameters = new QueryHistoryParameters(itemSpec);
-            foreach (var changeset in vcServer.QueryHistory(itemSpec, maxResults))
-            {
-                var comment = changeset.Comment;
-                var match = s_checkinShaRegex.Match(comment);
-                if (match.Success)
-                {
-                    return new ObjectId(match.Groups[1].Value);
-                }
-            }
 
-            return null;
+            try
+            {
+                foreach (var changeset in vcServer.QueryHistory(itemSpec, maxResults))
+                {
+                    var comment = changeset.Comment;
+                    var match = s_checkinShaRegex.Match(comment);
+                    if (match.Success)
+                    {
+                        return new ObjectId(match.Groups[1].Value);
+                    }
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

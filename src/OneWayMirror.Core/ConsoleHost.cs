@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OneWayMirror.Core
 {
-    public sealed class ConsoleHost : IHost
+    public class ConsoleHost : IHost
     {
         private readonly bool _verbose;
         
@@ -15,7 +15,7 @@ namespace OneWayMirror.Core
             _verbose = verbose;
         }
 
-        bool IHost.ConfirmCheckin(string shelvesetName)
+        public virtual bool ConfirmCheckin(string shelvesetName)
         {
             Console.WriteLine("Pending shelveset: {0}", shelvesetName);
             var comp = StringComparer.OrdinalIgnoreCase;
@@ -39,7 +39,7 @@ namespace OneWayMirror.Core
             }
         }
 
-        void IHost.Verbose(string format, params object[] args)
+        public virtual void Verbose(string format, params object[] args)
         {
             if (_verbose)
             {
@@ -47,12 +47,12 @@ namespace OneWayMirror.Core
             }
         }
 
-        void IHost.Status(string format, params object[] args)
+        public virtual void Status(string format, params object[] args)
         {
             Console.WriteLine(format, args);
         }
 
-        void IHost.Error(string format, params object[] args)
+        public virtual void Error(string format, params object[] args)
         {
             var color = Console.ForegroundColor;
             try
