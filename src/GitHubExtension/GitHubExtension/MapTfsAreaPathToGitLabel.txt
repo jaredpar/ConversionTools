@@ -1,0 +1,9 @@
+DevDiv\Cloud Platform\Managed Languages\Compiler, Area-Compilers
+DevDiv\Cloud Platform\Managed Languages\Compiler\API, API
+DevDiv\Cloud Platform\Managed Languages\Compiler\CSharp, Language-C#
+DevDiv\Cloud Platform\Managed Languages\Compiler\VB, Language-VB
+DevDiv\Cloud Platform\Managed Languages\Diagnostics, Area-Analyzers
+DevDiv\Cloud Platform\Managed Languages\Debugging, Area-Debugging
+DevDiv\Cloud Platform\Managed Languages\IDE, Area-IDE
+DevDiv\Cloud Platform\Managed Languages\Infrastructure, Area-Infrastructure
+DevDiv\Cloud Platform\Managed Languages\Interactive, Area-Interactive Design

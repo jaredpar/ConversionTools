@@ -1,0 +1,65 @@
+Michelle McDaniel, adiaaida
+Andy Gocke, agocke
+Aleksey Tsingauz, AlekseyTs
+Andrew Casey (ROSLYN), amcasey
+Andy Ayers, AndyAyersMS
+Anthony D. Green, AnthonyDGreen
+Balaji Krishnan, balajikris
+Balaji Soundrarajan, basoundr
+Beth Massi, BethMassi
+Bill Chiles, billchi-ms
+Brett Forsgren, brettfo
+David Kean, davkean
+Doug Mahugh (MS OPEN TECH), dmahugh
+Don Glover (Maq LLC), DonGlo
+David Poeschl, dpoeschl
+Dustin Campbell, DustinCampbell
+Matt Ellis, ellismg
+Matt Cohn, FiveTimesTheFun
+Neal Gafter, gafter
+Gaurav Khanna (CLR), gkhanna79
+HeeJae Chang, heejaechang
+Jared Parsons, jaredpar
+Jason Malinowski, jasonmalinowski
+Jay Schmelzer, jayschmelzer
+Jeremy Meng, jeremymeng
+Jonathon Marolf, jmarolf
+Joe Duffy, joeduffy
+Josh Free, joshfree
+Kevin Halverson, KevinH-MS
+Kevin Ransom, KevinRansom
+Kirill Osenkov, KirillOsenkov
+Kasey Uhlenhuth, kuhlenh
+Lucian Wischik, ljw1004
+Mads Torgersen, MadsTorgersen
+Manish Jayaswal, ManishJayaswal
+Martin Woodward, martinwoodward
+Matt Galbraith, MattGal
+Matthew Gertz, MattGertz
+Matthew Scheffer (Chinasoft International), mattscheffer
+Matt Warren, mattwar
+Manish Vasani, mavasani
+Matt Mitchell, mmitche
+Nick Guerrera, nguerrera
+Paul van Brenk, paulvanbrenk
+Peter Marcu, Petermarcu
+Paul Harrington, pharring
+Kevin Pilch-Bisson, Pilchie
+Ravi Chande, rchande
+Richard Lander, richlander
+Russell Hadley, russellhadley
+Scot Moorhead, scotmoor
+Asir Vedamuthu Selvasingh (MS OPEN TECH), selvasingh
+Shyam Namboodiripad, shyamnamboodiripad
+Sridhar Periyasamy, Sridhar-MS
+Srivatsn Narayanan, srivatsn
+Stephen Toub, stephentoub
+Tanner Gooding (Chinasoft International), tannergooding
+Immo Landwerth, terrajobst
+Theo Yaung, theoy
+Tomas Matousek, tmat
+Tom Meschter, tmeschter
+Collin Deel (Chinasoft), v-codeel
+Varun Gupta (CLR), varunguptacode
+Vladimir Sadov, VSadov
+Wes Haggard, weshaggard
