@@ -44,7 +44,6 @@ namespace OneWayMirror.Core
         private readonly Repository _repository;
         private readonly string _remoteName;
         private readonly Uri _repositoryUrl;
-        private readonly Credentials _repositoryCredentials;
         private readonly bool _confirmBeforeCheckin;
         private readonly bool _lockWorkspacePath;
 
@@ -56,7 +55,6 @@ namespace OneWayMirror.Core
             string workspacePath,
             Repository repository,
             Uri repositoryUrl,
-            Credentials repositoryCredentials,
             string remoteName,
             bool confirmBeforeCheckin,
             bool lockWorkspacePath)
@@ -66,7 +64,6 @@ namespace OneWayMirror.Core
             _workspacePath = workspacePath;
             _repository = repository;
             _repositoryUrl = repositoryUrl;
-            _repositoryCredentials = repositoryCredentials;
             _remoteName = remoteName;
             _confirmBeforeCheckin = confirmBeforeCheckin;
             _lockWorkspacePath = lockWorkspacePath;
@@ -159,24 +156,22 @@ namespace OneWayMirror.Core
                 return false;
             }
 
-            var fetchOptions = new FetchOptions();
-            fetchOptions.CredentialsProvider = (url, userNameForUrl, type) => _repositoryCredentials;
-
             try
             {
-                _repository.Network.Fetch(remote, fetchOptions);
+                _repository.Network.Fetch(remote, new FetchOptions());
                 return true;
             }
             catch (Exception ex)
             {
-                _host.Error("Error fetching {0}: {1}", _remoteName, ex.Message);
+                var message = string.Format("Error fetching {0}: {1}", _remoteName, ex.Message);
 
                 // The git protocol not correctly supported by libgit2sharp at the moment
                 if (remote.Url.Contains("git@github"))
                 {
-                    _host.Error("{0} remote must have an https URL, currently git@github form", _remoteName);
+                    message = message + Environment.NewLine + string.Format("{0} remote must have an https URL, currently git@github form", _remoteName);
                 }
 
+                _host.Error(message);
                 return false;
             }
         }

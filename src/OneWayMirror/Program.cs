@@ -16,13 +16,7 @@ namespace OneWayMirror
         {
             var tfsCollection = new Uri("http://vstfdevdiv:8080/DevDiv2");
             var gitRepositoryUrl = new Uri("https://github.com/dotnet/roslyn");
-            var token = File.ReadAllText(@"c:\users\jaredpar\token.txt").Trim();
             var gitRemoteName = "upstream";
-            var credentials = new UsernamePasswordCredentials()
-            {
-                Username = "jaredpar",
-                Password = token
-            };
 
             var tfsWorkspacePath = @"e:\dd\ros-tfs";
             var gitRepositoryPath = @"e:\dd\ros-git";
@@ -37,7 +31,6 @@ namespace OneWayMirror
                 gitRepositoryPath,
                 gitRepositoryUrl,
                 gitRemoteName,
-                credentials,
                 confirmBeforeCheckin: false,
                 lockWorkspacePath: true);
 
