@@ -7,6 +7,7 @@ using OneWayMirror.Core;
 using Microsoft.TeamFoundation.VersionControl.Client;
 using LibGit2Sharp;
 using System.IO;
+using IniParser.Parser;
 
 namespace OneWayMirror
 {
@@ -14,42 +15,31 @@ namespace OneWayMirror
     {
         internal static void Main(string[] args)
         {
-            var tfsCollection = new Uri("http://vstfdevdiv:8080/DevDiv2");
-            var gitRepositoryUrl = new Uri("https://github.com/dotnet/roslyn");
-            var gitRemoteName = "upstream";
-
-            var tfsWorkspacePath = @"e:\dd\ros-tfs";
-            var gitRepositoryPath = @"e:\dd\ros-git";
-            // var tfsWorkspacePath = @"c:\dd\ros-tfs";
-            // var gitRepositoryPath = @"C:\Users\jaredpar\Documents\GitHub\roslyn";
+            var parser = new IniDataParser();
+            var data = parser.Parse(File.ReadAllText("onewaymirror.ini"));
+            var tfsCollection = new Uri(data["tfs"]["collectionUri"]);
+            var tfsWorkspacePath = data["tfs"]["workspacePath"];
+            var tfsTargetPath = data["tfs"]["targetPath"];
+            var gitRepositoryPath = data["git"]["repositoryPath"];
+            var gitRepositoryUri = new Uri(data["git"]["repositoryUri"]);
+            var gitRemoteName = data["git"]["remote"];
+            var alertEmailAddress = data["general"]["alertEmailAddress"];
 
             OneWayMirrorUtil.Run(
-                new ReportingConsoleHost(verbose: true, reportEmailAddress: "jaredpar@microsoft.com"),
+                new ReportingConsoleHost(verbose: true, reportEmailAddress: alertEmailAddress),
                 tfsCollection,
                 tfsWorkspacePath,
-                "Open",
+                tfsTargetPath,
                 gitRepositoryPath,
-                gitRepositoryUrl,
+                gitRepositoryUri,
                 gitRemoteName,
                 confirmBeforeCheckin: false,
                 lockWorkspacePath: true);
-
-            /*
-            var sha = OneWayMirrorUtil.FindLastMirroredSha(tfsCollection, @"c:\dd\ros-tfs");
-            Console.WriteLine("Last sha is {0}", sha);
-            */
-
-            /*
-            var workspace = OneWayMirrorUtil.GetTfsWorkspace(tfsCollection, tfsWorkspacePath);
-            var repository = new Repository(gitRepositoryPath);
-            var target = Path.Combine(tfsWorkspacePath, @"Open\src\Test\Utilities");
-            var tree1 = GitUtils.CreateTreeFromWorkspace(workspace, target, repository.ObjectDatabase);
-            var tree2 = GitUtils.CreateTreeFromDirectory(target, repository.ObjectDatabase);
-            PrintTree(tree1);
-            PrintTree(tree2);
-            */
         }
 
+        /// <summary>
+        /// Print out the Tree object to the command line.  This is useful for debugging purposes.
+        /// </summary>
         private static void PrintTree(Tree tree, int depth = 0)
         {
             var prefix = new string(' ', depth * 2);
