@@ -24,7 +24,7 @@ namespace PortCodePlexToGitHub
         {
             int id = ParseId(document);
             string description = ParseDescription(document);
-            List<string> comments = ParseComments(document);
+            List<Comment> comments = ParseComments(document);
             return null;
         }
 
@@ -49,14 +49,14 @@ namespace PortCodePlexToGitHub
             return ParseContent(div);
         }
 
-        internal static List<string> ParseComments(HtmlDocument document)
+        internal static List<Comment> ParseComments(HtmlDocument document)
         {
             var div = document
                 .DocumentNode
                 .Descendants("div")
                 .Where(x => HasAttribute(x, "id", "CommentsList"))
                 .Single();
-            var list = new List<string>();
+            var list = new List<Comment>();
             foreach (var commentDiv in div.ChildNodes.Where(x => x.Name == "div"))
             {
                 // TODO: Need to parse out the commentor
@@ -66,13 +66,19 @@ namespace PortCodePlexToGitHub
             return list;
         }
 
-        internal static string ParseComment(HtmlNode node)
+        internal static Comment ParseComment(HtmlNode node)
         {
             var div = node
                 .Descendants("div")
                 .Where(x => x.GetAttributeValue("class", "").StartsWith("markDownOutput"))
                 .Single();
-            return ParseContent(div);
+            var content = ParseContent(div);
+            var user = node
+                .Descendants("a")
+                .Where(x => x.GetAttributeValue("id", "").StartsWith("PostedByLink"))
+                .Single()
+                .InnerText;
+            return new Comment(user, content);
         }
 
         internal static string ParseContent(HtmlNode node)
