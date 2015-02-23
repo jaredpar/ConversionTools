@@ -22,7 +22,7 @@ namespace OneWayMirror
             using (var msg = new MailMessage())
             {
                 msg.To.Add(new MailAddress(_reportEmailAddress));
-                msg.From = new MailAddress(Environment.UserDomainName + @"@microsoft.com");
+                msg.From = new MailAddress(Environment.UserName + @"@microsoft.com");
                 msg.IsBodyHtml = false;
                 msg.Subject = "Git to TFS Mirror Error";
                 msg.Body = body;
