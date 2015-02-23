@@ -23,6 +23,8 @@ namespace PortCodePlexToGitHub
         internal CodePlexIssue Parse(HtmlDocument document)
         {
             int id = ParseId(document);
+            string description = ParseDescription(document);
+            List<string> comments = ParseComments(document);
             return null;
         }
 
@@ -35,6 +37,62 @@ namespace PortCodePlexToGitHub
                 .First();
             var idText = div.GetAttributeValue("d:workItemId", "");
             return int.Parse(idText);
+        }
+
+        internal static string ParseDescription(HtmlDocument document)
+        {
+            var div = document
+                .DocumentNode
+                .Descendants("div")
+                .Where(x => HasAttribute(x, "id", "descriptionContent"))
+                .Single();
+            return ParseContent(div);
+        }
+
+        internal static List<string> ParseComments(HtmlDocument document)
+        {
+            var div = document
+                .DocumentNode
+                .Descendants("div")
+                .Where(x => HasAttribute(x, "id", "CommentsList"))
+                .Single();
+            var list = new List<string>();
+            foreach (var commentDiv in div.ChildNodes.Where(x => x.Name == "div"))
+            {
+                // TODO: Need to parse out the commentor
+                list.Add(ParseComment(commentDiv));
+            }
+
+            return list;
+        }
+
+        internal static string ParseComment(HtmlNode node)
+        {
+            var div = node
+                .Descendants("div")
+                .Where(x => x.GetAttributeValue("class", "").StartsWith("markDownOutput"))
+                .Single();
+            return ParseContent(div);
+        }
+
+        internal static string ParseContent(HtmlNode node)
+        {
+            var builder = new StringBuilder();
+            foreach (var child in node.ChildNodes)
+            {
+                if (child.Name == "pre")
+                {
+                    builder.AppendLine("``` csharp");
+                    builder.AppendLine(child.InnerText);
+                    builder.AppendLine("```");
+                }
+                else
+                {
+                    builder.Append(child.InnerText);
+                }
+            }
+
+            return builder.ToString();
         }
 
         internal static bool HasAttribute(HtmlNode node, string name, string value)
