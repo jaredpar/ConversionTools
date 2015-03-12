@@ -23,6 +23,7 @@ namespace OneWayMirror.Core
             string gitRepositoryPath,
             Uri gitRepositoryUrl,
             string gitRemoteName,
+            string gitBranchName,
             bool confirmBeforeCheckin = false,
             bool lockWorkspacePath = false)
         {
@@ -40,6 +41,7 @@ namespace OneWayMirror.Core
                 gitRepository,
                 gitRepositoryUrl,
                 gitRemoteName,
+                gitBranchName,
                 confirmBeforeCheckin,
                 lockWorkspacePath);
 
