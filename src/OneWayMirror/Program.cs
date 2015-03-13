@@ -23,6 +23,7 @@ namespace OneWayMirror
             var gitRepositoryPath = data["git"]["repositoryPath"];
             var gitRepositoryUri = new Uri(data["git"]["repositoryUri"]);
             var gitRemoteName = data["git"]["remote"];
+            var gitBranchName = data["git"]["branch"];
             var alertEmailAddress = data["general"]["alertEmailAddress"];
 
             OneWayMirrorUtil.Run(
@@ -33,6 +34,7 @@ namespace OneWayMirror
                 gitRepositoryPath,
                 gitRepositoryUri,
                 gitRemoteName,
+                gitBranchName,
                 confirmBeforeCheckin: false,
                 lockWorkspacePath: true);
         }

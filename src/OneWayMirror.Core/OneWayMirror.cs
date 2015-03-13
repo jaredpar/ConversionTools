@@ -43,6 +43,7 @@ namespace OneWayMirror.Core
         private readonly Workspace _workspace;
         private readonly Repository _repository;
         private readonly string _remoteName;
+        private readonly string _branchName;
         private readonly Uri _repositoryUrl;
         private readonly bool _confirmBeforeCheckin;
         private readonly bool _lockWorkspacePath;
@@ -56,6 +57,7 @@ namespace OneWayMirror.Core
             Repository repository,
             Uri repositoryUrl,
             string remoteName,
+            string branchName,
             bool confirmBeforeCheckin,
             bool lockWorkspacePath)
         {
@@ -65,6 +67,7 @@ namespace OneWayMirror.Core
             _repository = repository;
             _repositoryUrl = repositoryUrl;
             _remoteName = remoteName;
+            _branchName = branchName;
             _confirmBeforeCheckin = confirmBeforeCheckin;
             _lockWorkspacePath = lockWorkspacePath;
         }
@@ -109,7 +112,7 @@ namespace OneWayMirror.Core
                     return;
                 }
 
-                var refName = string.Format("refs/remotes/{0}/master", _remoteName);
+                var refName = string.Format("refs/remotes/{0}/{1}", _remoteName, _branchName);
                 var commit = _repository.Refs[refName].ResolveAs<Commit>();
                 if (commit.Sha == baseCommit.Sha)
                 {
@@ -147,7 +150,7 @@ namespace OneWayMirror.Core
 
         private bool FetchGitLatest()
         {
-            _host.Verbose("Updating Git from {0}/master.", _remoteName);
+            _host.Verbose("Updating Git from {0}/{1}.", _remoteName, _branchName);
 
             var remote = _repository.Network.Remotes[_remoteName];
             if (remote == null)
