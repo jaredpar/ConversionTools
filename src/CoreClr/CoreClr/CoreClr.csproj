@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{42153CBD-F63F-4339-B5BB-342968744344}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CoreClr</RootNamespace>
+    <AssemblyName>CoreClr</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ImplicitlyExpandTargetFramework>False</ImplicitlyExpandTargetFramework>
+    <TargetFrameworkProfile>Profile259</TargetFrameworkProfile>
+    <TargetFrameworkIdentifier>.NETPortable</TargetFrameworkIdentifier>
+    <RestorePackages>true</RestorePackages>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup Label="File References">
+    <Reference Include="..\packages\System.Reflection.Metadata.1.0.18-beta\lib\portable-net45+win8\System.Reflection.Metadata.dll" />
+    <Reference Include="..\packages\System.Runtime.4.0.20-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Runtime.dll" />
+    <Reference Include="..\packages\System.Runtime.InteropServices.4.0.20-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Runtime.InteropServices.dll" />
+    <Reference Include="..\packages\System.Xml.XmlDocument.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Xml.XmlDocument.dll" />
+    <Reference Include="..\packages\System.Xml.ReaderWriter.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Xml.ReaderWriter.dll" />
+    <Reference Include="..\packages\System.Resources.ResourceManager.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Resources.ResourceManager.dll" />
+    <Reference Include="..\packages\System.Globalization.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Globalization.dll" />
+    <Reference Include="..\packages\System.Collections.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Collections.dll" />
+    <Reference Include="..\packages\System.Linq.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Linq.dll" />
+    <Reference Include="..\packages\System.IO.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.IO.dll" />
+    <Reference Include="..\packages\System.IO.FileSystem.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.IO.FileSystem.dll" />
+    <Reference Include="..\packages\System.IO.FileSystem.Primitives.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.IO.FileSystem.Primitives.dll" />
+    <Reference Include="..\packages\System.IO.MemoryMappedFiles.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.IO.MemoryMappedFiles.dll" />
+    <Reference Include="..\packages\System.Diagnostics.Tools.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Diagnostics.Tools.dll" />
+    <Reference Include="..\packages\System.Diagnostics.Debug.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Diagnostics.Debug.dll" />
+    <Reference Include="..\packages\System.Reflection.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Reflection.dll" />
+    <Reference Include="..\packages\System.Runtime.Extensions.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Runtime.Extensions.dll" />
+    <Reference Include="..\packages\System.Threading.4.0.0-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Threading.dll" />
+    <Reference Include="..\packages\System.Threading.Tasks.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Threading.Tasks.dll" />
+    <Reference Include="..\packages\System.Text.Encoding.4.0.10-beta-22405\lib\portable-wpa80+win80+net45+aspnetcore50\System.Text.Encoding.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
