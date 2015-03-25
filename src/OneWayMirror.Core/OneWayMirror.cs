@@ -47,6 +47,7 @@ namespace OneWayMirror.Core
         private readonly Uri _repositoryUrl;
         private readonly bool _confirmBeforeCheckin;
         private readonly bool _lockWorkspacePath;
+        private readonly CommitPortUtil _commitPortUtil;
 
         private Tree _cachedWorkspaceTree;
 
@@ -70,6 +71,7 @@ namespace OneWayMirror.Core
             _branchName = branchName;
             _confirmBeforeCheckin = confirmBeforeCheckin;
             _lockWorkspacePath = lockWorkspacePath;
+            _commitPortUtil = new CommitPortUtil(repository, workspace, workspacePath, host);
         }
 
         /// <summary>
@@ -364,55 +366,7 @@ namespace OneWayMirror.Core
             Debug.Assert(treeChanges.Any());
             Debug.Assert(!HasPendingChangesBesidesLock());
 
-            foreach (var changeEntry in treeChanges)
-            {
-                var tfsFilePath = GetTfsWorkspacePath(changeEntry.Path);
-                var tfsFileName = Path.GetFileName(tfsFilePath);
-                switch (changeEntry.Status)
-                {
-                    case ChangeKind.Added:
-                        _host.Verbose("Pending add {0}", tfsFileName);
-                        WriteObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
-                        _workspace.PendAdd(tfsFilePath);
-                        break;
-                    case ChangeKind.Deleted:
-                        _host.Verbose("Pending delete {0}", tfsFileName);
-                        _workspace.PendDelete(tfsFilePath);
-                        break;
-                    case ChangeKind.Renamed:
-                        _workspace.PendRename(GetTfsWorkspacePath(changeEntry.OldPath), tfsFilePath);
-
-                        if (changeEntry.OldOid != changeEntry.Oid)
-                        {
-                            _workspace.PendEdit(tfsFilePath);
-                            CopyObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
-                        }
-
-                        // If there is a path case difference between TFS and Git then it will keep showing
-                        // up as a rename until an explicit path change occurs in TFS.  Don't report such
-                        // differences as pends because it just causes noise to the output.
-                        if (!StringComparer.OrdinalIgnoreCase.Equals(changeEntry.OldPath, changeEntry.Path))
-                        {
-                            _host.Verbose("Pending rename {0}", tfsFileName);
-                        }
-
-                        break;
-                    case ChangeKind.Modified:
-                        Debug.Assert(changeEntry.Oid != changeEntry.OldOid || changeEntry.OldMode != changeEntry.Mode);
-                        if (changeEntry.OldOid != changeEntry.Oid)
-                        {
-                            _host.Verbose("Pending edit {0}", tfsFileName);
-                            _workspace.PendEdit(tfsFilePath);
-                            CopyObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
-                        }
-                        break;
-                    default:
-                        _host.Error("Unknown change status {0} {1}", changeEntry.Status, changeEntry.Path);
-                        return false;
-                }
-            }
-
-            return true;
+            return _commitPortUtil.ApplyGitChangeToWorkspace(treeChanges);
         }
 
         private Tree GetOrCreateWorkspaceTree()
@@ -426,33 +380,6 @@ namespace OneWayMirror.Core
             }
 
             return _cachedWorkspaceTree;
-        }
-
-        /// <summary>
-        /// Get the TFS file path for the given git relative path 
-        /// </summary>
-        private string GetTfsWorkspacePath(string gitPath)
-        {
-            Debug.Assert(gitPath[0] != '/');
-            return Path.Combine(_workspacePath, gitPath);
-        }
-
-        private void WriteObjectToFile(string tfsFilePath, ObjectId objectId, string gitPath)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(tfsFilePath));
-
-            using (var fs = new FileStream(tfsFilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                _repository.Lookup<Blob>(objectId).GetContentStream(new FilteringOptions(gitPath)).CopyTo(fs);
-            }
-        }
-
-        private void CopyObjectToFile(string tfsFilePath, ObjectId oidOfFile, string gitPath)
-        {
-            using (var fs = new FileStream(tfsFilePath, FileMode.Truncate, FileAccess.Write, FileShare.None))
-            {
-                _repository.Lookup<Blob>(oidOfFile).GetContentStream(new FilteringOptions(gitPath)).CopyTo(fs);
-            }
         }
     }
 }
