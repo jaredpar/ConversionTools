@@ -16,7 +16,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{DD0619
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShelveCommit", "ShelveCommit\ShelveCommit.csproj", "{0C081E80-CFEC-4A17-A1AA-B7DE6E40A5B6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShelveCommit", "src\ShelveCommit\ShelveCommit.csproj", "{0C081E80-CFEC-4A17-A1AA-B7DE6E40A5B6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
