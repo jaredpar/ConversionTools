@@ -38,6 +38,7 @@ namespace OneWayMirror.Core
                 host,
                 tfsWorkspace,
                 workspacePath,
+                tfsWorkspacePath,
                 gitRepository,
                 gitRepositoryUrl,
                 gitRemoteName,

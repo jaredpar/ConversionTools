@@ -48,13 +48,20 @@ namespace OneWayMirror.Core
         private readonly bool _confirmBeforeCheckin;
         private readonly bool _lockWorkspacePath;
         private readonly CommitPortUtil _commitPortUtil;
+        private readonly string _userNamesMapFullPath;
 
         private Tree _cachedWorkspaceTree;
+
+        private const string _userNamesMapRelativeFilePath = @"Closed\Tools\MapGitToTfsUserName.txt";
+
+        private Dictionary<string, string> _lazyUserNamesMap;
+        private DateTime _lastUpdatedTime;
 
         internal OneWayMirror(
             IHost host,
             Workspace workspace,
             string workspacePath,
+            string tfsWorkspacePath,
             Repository repository,
             Uri repositoryUrl,
             string remoteName,
@@ -72,6 +79,59 @@ namespace OneWayMirror.Core
             _confirmBeforeCheckin = confirmBeforeCheckin;
             _lockWorkspacePath = lockWorkspacePath;
             _commitPortUtil = new CommitPortUtil(repository, workspace, workspacePath, host);
+
+            _userNamesMapFullPath = Path.Combine(tfsWorkspacePath, _userNamesMapRelativeFilePath);
+            _lazyUserNamesMap = null;
+            _lastUpdatedTime = default(DateTime);
+        }
+
+        private Dictionary<string, string> GetOrCreateGitToTfsUserNamesMap()
+        {
+            try
+            {
+                var lastUpdatedTime = File.GetLastWriteTime(_userNamesMapFullPath);
+                if (_lazyUserNamesMap != null && lastUpdatedTime == _lastUpdatedTime)
+                {
+                    return _lazyUserNamesMap;
+                }
+
+                var map = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+                var lines = File.ReadAllLines(_userNamesMapFullPath);
+                foreach (var line in lines)
+                {
+                    if (line.StartsWith("#"))
+                    {
+                        // ignore comments
+                        continue;
+                    }
+
+                    var parts = line.Split(',');
+                    if (parts.Length >= 2)
+                    {
+                        var gitUserName = parts[0].TrimStart(' ');
+                        var tfsUserName = parts[1].TrimStart(' ');
+                        
+                        var tfsUserInfo = tfsUserName;
+                        if (parts.Length > 2)
+                        {
+                            var emailId = parts[2].TrimStart(' ');
+                            tfsUserInfo = string.Format("{0} ({1})", tfsUserName, emailId);
+                        }
+
+                        map.Add(gitUserName, tfsUserInfo);
+                    }
+                }
+
+                _lastUpdatedTime = lastUpdatedTime;
+                _lazyUserNamesMap = map;
+                
+                return map;
+            }
+            catch (Exception)
+            {
+                // Ignore exceptions.
+                return null;
+            }
         }
 
         /// <summary>
@@ -323,6 +383,37 @@ namespace OneWayMirror.Core
             return true;
         }
 
+        private string GetCommitOwnerInfo(Commit commit)
+        {
+            var gitUserName = commit.Committer.Name;
+            var userNameMap = GetOrCreateGitToTfsUserNamesMap();
+            if (userNameMap == null)
+            {
+                return gitUserName;
+            }
+
+            string tfsUserInfo;
+            if (userNameMap.TryGetValue(gitUserName, out tfsUserInfo))
+            {
+                return tfsUserInfo;
+            }
+
+            if (commit.Committer.Email != null)
+            {
+                var index = commit.Committer.Email.IndexOf("@");
+                if (index > 0)
+                {
+                    var gitEmailIdPrefix = commit.Committer.Email.Substring(0, index);
+                    if (userNameMap.TryGetValue(gitEmailIdPrefix, out tfsUserInfo))
+                    {
+                        return tfsUserInfo;
+                    }
+                }
+            }
+
+            return gitUserName;
+        }
+
         /// <summary>
         /// Confirm to the host that we want to to check in the changes as currently staged.
         /// </summary>
@@ -339,12 +430,31 @@ namespace OneWayMirror.Core
         private string CreateCheckinMessage(CommitRange commitRange)
         {
             var builder = new StringBuilder();
-            builder.AppendLine("Port Git -> TFS");
+            
+            var message = commitRange.NewCommit.Message;
+            var shortMessage = commitRange.NewCommit.MessageShort;
+            if (!string.IsNullOrEmpty(shortMessage) &&
+                shortMessage.StartsWith(@"Merge pull request") &&
+                message.StartsWith(shortMessage))
+            {
+                // For merged PRs, re-arrange the checkin message to output the core commit message first.
+                var strippedMessage = message.Substring(shortMessage.Length).TrimStart('\n', '\r', ' ');
+                builder.AppendLine(strippedMessage);
+                builder.AppendLine();
+                builder.AppendLine(shortMessage);
+            }
+            else
+            {
+                builder.AppendLine(message);
+                builder.AppendLine();
+            }
+
+            var owner = GetCommitOwnerInfo(commitRange.NewCommit);
+            builder.AppendFormatLine("Ported from Git -> TFS on behalf of: '{0}'", owner);
             builder.AppendLine();
+
             builder.AppendFormatLine("From: {0}", commitRange.OldCommit.Sha);
             builder.AppendFormatLine("To: {0}", commitRange.NewCommit.Sha);
-            builder.AppendLine();
-            builder.AppendLine("This commit was generated automatically by a tool.  Contact dotnet-bot@microsoft.com for help.");
             builder.AppendLine();
             builder.AppendFormatLine("[git-commit-sha: {0}]", commitRange.NewCommit.Sha);
 
@@ -352,9 +462,8 @@ namespace OneWayMirror.Core
             builder.AppendFormatLine("[git-commit-url: {0}", commitUri);
 
             builder.AppendLine();
-            builder.AppendLine("Original Commit Message");
-            builder.AppendLine(commitRange.NewCommit.Message);
-
+            builder.AppendLine("*** This commit was generated automatically by a tool.  Contact dotnet-bot@microsoft.com for help. ***");
+            
             return builder.ToString();
         }
 
