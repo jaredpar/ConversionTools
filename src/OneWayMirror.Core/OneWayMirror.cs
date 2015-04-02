@@ -48,20 +48,19 @@ namespace OneWayMirror.Core
         private readonly bool _confirmBeforeCheckin;
         private readonly bool _lockWorkspacePath;
         private readonly CommitPortUtil _commitPortUtil;
-        private readonly string _userNamesMapFullPath;
+        private readonly string _tfsUserInfoMappingFilePath;
 
         private Tree _cachedWorkspaceTree;
 
-        private const string _userNamesMapRelativeFilePath = @"Closed\Tools\MapGitToTfsUserName.txt";
-
-        private Dictionary<string, string> _lazyUserNamesMap;
+        
+        private Dictionary<string, CommitOwnerInfo> _lazyUserNamesMap;
         private DateTime _lastUpdatedTime;
 
         internal OneWayMirror(
             IHost host,
             Workspace workspace,
             string workspacePath,
-            string tfsWorkspacePath,
+            string tfsUserInfoMappingFilePath,
             Repository repository,
             Uri repositoryUrl,
             string remoteName,
@@ -80,23 +79,23 @@ namespace OneWayMirror.Core
             _lockWorkspacePath = lockWorkspacePath;
             _commitPortUtil = new CommitPortUtil(repository, workspace, workspacePath, host);
 
-            _userNamesMapFullPath = Path.Combine(tfsWorkspacePath, _userNamesMapRelativeFilePath);
+            _tfsUserInfoMappingFilePath = tfsUserInfoMappingFilePath;
             _lazyUserNamesMap = null;
             _lastUpdatedTime = default(DateTime);
         }
 
-        private Dictionary<string, string> GetOrCreateGitToTfsUserNamesMap()
+        private Dictionary<string, CommitOwnerInfo> GetOrCreateGitToTfsUserNamesMap()
         {
             try
             {
-                var lastUpdatedTime = File.GetLastWriteTime(_userNamesMapFullPath);
+                var lastUpdatedTime = File.GetLastWriteTime(_tfsUserInfoMappingFilePath);
                 if (_lazyUserNamesMap != null && lastUpdatedTime == _lastUpdatedTime)
                 {
                     return _lazyUserNamesMap;
                 }
 
-                var map = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
-                var lines = File.ReadAllLines(_userNamesMapFullPath);
+                var map = new Dictionary<string, CommitOwnerInfo>(StringComparer.InvariantCultureIgnoreCase);
+                var lines = File.ReadAllLines(_tfsUserInfoMappingFilePath);
                 foreach (var line in lines)
                 {
                     if (line.StartsWith("#"))
@@ -106,19 +105,23 @@ namespace OneWayMirror.Core
                     }
 
                     var parts = line.Split(',');
-                    if (parts.Length >= 2)
+                    if (parts.Length >= 3)
                     {
                         var gitUserName = parts[0].TrimStart(' ');
                         var tfsUserName = parts[1].TrimStart(' ');
-                        
-                        var tfsUserInfo = tfsUserName;
-                        if (parts.Length > 2)
+                        var alias = parts[2].TrimStart(' ');
+
+                        if (tfsUserName.Length == 0 || alias.Length == 0)
                         {
-                            var emailId = parts[2].TrimStart(' ');
-                            tfsUserInfo = string.Format("{0} ({1})", tfsUserName, emailId);
+                            continue;
                         }
 
-                        map.Add(gitUserName, tfsUserInfo);
+                        if (!alias.Contains(@"\"))
+                        {
+                            alias = @"redmond\" + alias;
+                        }
+
+                        map.Add(gitUserName, new CommitOwnerInfo(tfsUserName, alias));
                     }
                 }
 
@@ -127,9 +130,11 @@ namespace OneWayMirror.Core
                 
                 return map;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Ignore exceptions.
+                // Log exception.
+                var message = string.Format("GetOrCreateGitToTfsUserNamesMap threw an exception '{0}' with message '{1}'", ex.GetType(), ex.Message);
+                _host.Error(message);
                 return null;
             }
         }
@@ -351,18 +356,23 @@ namespace OneWayMirror.Core
                 return false;
             }
 
-            var checkinMessage = CreateCheckinMessage(commitRange);
+            var ownerInfo = GetCommitOwnerInfo(commitRange.NewCommit);
+            
+            var checkinMessage = CreateCheckinMessage(commitRange, ownerInfo.UserDisplayName);
             if (_confirmBeforeCheckin && !ConfirmCheckin(newCommit, checkinMessage))
             {
                 return false;
             }
 
-            var checkinParameters = new WorkspaceCheckInParameters(_workspace.GetPendingChangesEnumerable(), checkinMessage);
-            checkinParameters.NoAutoResolve = true;
-
             try
             {
-                _workspace.CheckIn(checkinParameters);
+                _workspace.CheckIn(
+                    _workspace.GetPendingChanges(),
+                    author: ownerInfo.MappedTfsAuthorName,
+                    comment: checkinMessage,
+                    checkinNote: null,
+                    workItemChanges: null,
+                    policyOverride: null);
                 _cachedWorkspaceTree = newCommit.Tree;
             }
             catch (Exception ex)
@@ -383,35 +393,33 @@ namespace OneWayMirror.Core
             return true;
         }
 
-        private string GetCommitOwnerInfo(Commit commit)
+        private CommitOwnerInfo GetCommitOwnerInfo(Commit commit)
         {
-            var gitUserName = commit.Committer.Name;
+            var userDisplayName = commit.Committer.Name;
+
             var userNameMap = GetOrCreateGitToTfsUserNamesMap();
-            if (userNameMap == null)
+            if (userNameMap != null)
             {
-                return gitUserName;
-            }
-
-            string tfsUserInfo;
-            if (userNameMap.TryGetValue(gitUserName, out tfsUserInfo))
-            {
-                return tfsUserInfo;
-            }
-
-            if (commit.Committer.Email != null)
-            {
-                var index = commit.Committer.Email.IndexOf("@");
-                if (index > 0)
+                CommitOwnerInfo tfsUserInfo;
+                if (userNameMap.TryGetValue(userDisplayName, out tfsUserInfo))
                 {
-                    var gitEmailIdPrefix = commit.Committer.Email.Substring(0, index);
-                    if (userNameMap.TryGetValue(gitEmailIdPrefix, out tfsUserInfo))
+                    return tfsUserInfo;
+                }
+                else if (commit.Committer.Email != null)
+                {
+                    var index = commit.Committer.Email.IndexOf("@");
+                    if (index > 0)
                     {
-                        return tfsUserInfo;
+                        var gitEmailIdPrefix = commit.Committer.Email.Substring(0, index);
+                        if (userNameMap.TryGetValue(gitEmailIdPrefix, out tfsUserInfo))
+                        {
+                            return tfsUserInfo;
+                        }
                     }
                 }
             }
 
-            return gitUserName;
+            return new CommitOwnerInfo(userDisplayName, _workspace.OwnerName);
         }
 
         /// <summary>
@@ -427,7 +435,7 @@ namespace OneWayMirror.Core
             return _host.ConfirmCheckin(shelvesetName);
         }
 
-        private string CreateCheckinMessage(CommitRange commitRange)
+        private string CreateCheckinMessage(CommitRange commitRange, string ownerDisplayName)
         {
             var builder = new StringBuilder();
             
@@ -449,8 +457,7 @@ namespace OneWayMirror.Core
                 builder.AppendLine();
             }
 
-            var owner = GetCommitOwnerInfo(commitRange.NewCommit);
-            builder.AppendFormatLine("Ported from Git -> TFS on behalf of: '{0}'", owner);
+            builder.AppendFormatLine("Ported from Git -> TFS on behalf of: '{0}'", ownerDisplayName);
             builder.AppendLine();
 
             builder.AppendFormatLine("From: {0}", commitRange.OldCommit.Sha);
@@ -489,6 +496,21 @@ namespace OneWayMirror.Core
             }
 
             return _cachedWorkspaceTree;
+        }
+
+        private struct CommitOwnerInfo
+        {
+            public readonly string UserDisplayName;
+            public readonly string MappedTfsAuthorName;
+
+            public CommitOwnerInfo(string userDisplayName, string tfsCheckinAuthorName)
+            {
+                Debug.Assert(!string.IsNullOrEmpty(userDisplayName));
+                Debug.Assert(!string.IsNullOrEmpty(tfsCheckinAuthorName));
+
+                UserDisplayName = userDisplayName;
+                MappedTfsAuthorName = tfsCheckinAuthorName;
+            }
         }
     }
 }

@@ -20,17 +20,21 @@ namespace OneWayMirror
             var tfsCollection = new Uri(data["tfs"]["collectionUri"]);
             var tfsWorkspacePath = data["tfs"]["workspacePath"];
             var tfsTargetPath = data["tfs"]["targetPath"];
+            var tfsUserInfoMappingFileRelativePath = data["tfs"]["tfsUserInfoMappingFileRelativePath"];
             var gitRepositoryPath = data["git"]["repositoryPath"];
             var gitRepositoryUri = new Uri(data["git"]["repositoryUri"]);
             var gitRemoteName = data["git"]["remote"];
             var gitBranchName = data["git"]["branch"];
             var alertEmailAddress = data["general"]["alertEmailAddress"];
 
+            var tfsUserInfoMappingFilePath = Path.Combine(tfsWorkspacePath, tfsUserInfoMappingFileRelativePath);
+
             OneWayMirrorUtil.Run(
                 new ReportingConsoleHost(verbose: true, reportEmailAddress: alertEmailAddress),
                 tfsCollection,
                 tfsWorkspacePath,
                 tfsTargetPath,
+                tfsUserInfoMappingFilePath,
                 gitRepositoryPath,
                 gitRepositoryUri,
                 gitRemoteName,
