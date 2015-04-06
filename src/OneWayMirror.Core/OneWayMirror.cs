@@ -33,6 +33,8 @@ namespace OneWayMirror.Core
             }
         }
 
+        private const int FETCH_GIT_MAX_ATTEMPTS = 20;
+        
         private readonly IHost _host;
 
         /// <summary>
@@ -51,8 +53,6 @@ namespace OneWayMirror.Core
         private readonly string _tfsUserInfoMappingFilePath;
 
         private Tree _cachedWorkspaceTree;
-
-        
         private Dictionary<string, CommitOwnerInfo> _lazyUserNamesMap;
         private DateTime _lastUpdatedTime;
 
@@ -226,24 +226,45 @@ namespace OneWayMirror.Core
                 return false;
             }
 
-            try
-            {
-                _repository.Network.Fetch(remote, new FetchOptions());
-                return true;
-            }
-            catch (Exception ex)
-            {
-                var message = string.Format("Error fetching {0}: {1}", _remoteName, ex.Message);
+            return FetchGitLatestCore(remote);
+        }
 
-                // The git protocol not correctly supported by libgit2sharp at the moment
-                if (remote.Url.Contains("git@github"))
+        private bool FetchGitLatestCore(Remote remote)
+        {
+            var attempt = 1;
+
+            while (true)
+            {
+                try
                 {
-                    message = message + Environment.NewLine + string.Format("{0} remote must have an https URL, currently git@github form", _remoteName);
+                    _repository.Network.Fetch(remote, new FetchOptions());
+                    return true;
                 }
+                catch (Exception ex)
+                {
+                    if (attempt <= FETCH_GIT_MAX_ATTEMPTS)
+                    {
+                        attempt++;
+                        continue;
+                    }
 
-                _host.Error(message);
-                return false;
+                    ReportFetchGitException(remote, ex);
+                    return false;
+                }
             }
+        }
+
+        private void ReportFetchGitException(Remote remote, Exception ex)
+        {
+            var message = string.Format("Error fetching {0}: {1}", _remoteName, ex.Message);
+
+            // The git protocol not correctly supported by libgit2sharp at the moment
+            if (remote.Url.Contains("git@github"))
+            {
+                message = message + Environment.NewLine + string.Format("{0} remote must have an https URL, currently git@github form", _remoteName);
+            }
+                    
+            _host.Error(message);
         }
 
         /// <summary>
