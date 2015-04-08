@@ -33,7 +33,7 @@ namespace OneWayMirror.Core
             }
         }
 
-        private const int FETCH_GIT_MAX_ATTEMPTS = 20;
+        private const int fetchGitMaxAttempts = 20;
         
         private readonly IHost _host;
 
@@ -242,7 +242,7 @@ namespace OneWayMirror.Core
                 }
                 catch (Exception ex)
                 {
-                    if (attempt <= FETCH_GIT_MAX_ATTEMPTS)
+                    if (attempt <= fetchGitMaxAttempts)
                     {
                         attempt++;
                         continue;
@@ -438,6 +438,10 @@ namespace OneWayMirror.Core
                         }
                     }
                 }
+
+                var message = @"Failed to find the required Git -> TFS mapping entry for Git commit user: '{0}' and Git commit email: '{1}'.
+Falling back to '{2}' for checkin.";
+                _host.Error(message, userDisplayName, commit.Committer.Email ?? "<None>", _workspace.OwnerName);
             }
 
             return new CommitOwnerInfo(userDisplayName, _workspace.OwnerName);
