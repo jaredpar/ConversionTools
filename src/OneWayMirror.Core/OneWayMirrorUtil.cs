@@ -54,7 +54,14 @@ namespace OneWayMirror.Core
                 return;
             }
 
-            oneWayMirror.Run(sha);
+            try
+            {
+                oneWayMirror.Run(sha);
+            }
+            catch (Exception ex)
+            {
+                host.Error("Mirror exitted with an exception: {0}{1}{2}", ex.Message, Environment.NewLine, ex.StackTrace);
+            }
         }
 
         public static string FindLastMirroredSha(Uri tfsCollection, string tfsWorkspacePath)
