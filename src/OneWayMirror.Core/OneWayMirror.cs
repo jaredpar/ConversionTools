@@ -456,7 +456,7 @@ Falling back to '{2}' for checkin.";
             var shelveset = new Shelveset(_workspace.VersionControlServer, shelvesetName, _workspace.OwnerName);
             shelveset.Comment = checkinMessage;
 
-            _workspace.Shelve(shelveset, _workspace.GetPendingChanges(), ShelvingOptions.None);
+            _workspace.Shelve(shelveset, _workspace.GetPendingChanges(), ShelvingOptions.Replace);
             return _host.ConfirmCheckin(shelvesetName);
         }
 
