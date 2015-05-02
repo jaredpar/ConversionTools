@@ -52,9 +52,17 @@ namespace OneWayMirror.Core
                 switch (changeEntry.Status)
                 {
                     case ChangeKind.Added:
-                        _host.Verbose("Pending add {0}", tfsFileName);
-                        WriteObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
-                        _workspace.PendAdd(tfsFilePath);
+                        if (File.Exists(tfsFilePath))
+                        {
+                            _host.Error("Pending add found existing file {0}", tfsFileName);
+                            ApplyModified(changeEntry, tfsFilePath, tfsFileName);
+                        }
+                        else
+                        {
+                            _host.Verbose("Pending add {0}", tfsFileName);
+                            WriteObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
+                            _workspace.PendAdd(tfsFilePath);
+                        }
                         break;
                     case ChangeKind.Deleted:
                         _host.Verbose("Pending delete {0}", tfsFileName);
@@ -80,12 +88,7 @@ namespace OneWayMirror.Core
                         break;
                     case ChangeKind.Modified:
                         Debug.Assert(changeEntry.Oid != changeEntry.OldOid || changeEntry.OldMode != changeEntry.Mode);
-                        if (changeEntry.OldOid != changeEntry.Oid)
-                        {
-                            _host.Verbose("Pending edit {0}", tfsFileName);
-                            _workspace.PendEdit(tfsFilePath);
-                            CopyObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
-                        }
+                        ApplyModified(changeEntry, tfsFilePath, tfsFileName);
                         break;
                     default:
                         _host.Error("Unknown change status {0} {1}", changeEntry.Status, changeEntry.Path);
@@ -94,6 +97,16 @@ namespace OneWayMirror.Core
             }
 
             return true;
+        }
+
+        private void ApplyModified(TreeEntryChanges changeEntry, string tfsFilePath, string tfsFileName)
+        {
+            if (changeEntry.OldOid != changeEntry.Oid)
+            {
+                _host.Verbose("Pending edit {0}", tfsFileName);
+                _workspace.PendEdit(tfsFilePath);
+                CopyObjectToFile(tfsFilePath, changeEntry.Oid, changeEntry.Path);
+            }
         }
 
         /// <summary>
