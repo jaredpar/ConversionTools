@@ -30,7 +30,7 @@ namespace OneWayMirror
             var tfsUserInfoMappingFilePath = Path.Combine(tfsWorkspacePath, tfsUserInfoMappingFileRelativePath);
 
             OneWayMirrorUtil.Run(
-                new ReportingConsoleHost(verbose: true, reportEmailAddress: alertEmailAddress),
+                new ReportingConsoleHost(verbose: true, reportEmailAddress: alertEmailAddress, gitRemoteName: gitRemoteName, gitBranchName: gitBranchName),
                 tfsCollection,
                 tfsWorkspacePath,
                 tfsTargetPath,
